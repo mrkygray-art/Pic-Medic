@@ -100,7 +100,14 @@ function showResearchOffer(kind, question, details){
  $('assistant-status').after(row);
 }
 function clearResearchOffer(){pendingResearch=null;document.getElementById('research-choices')?.remove();}
-function researchFields(kind,hw){return {kind,manufacturer:String(hw.Manufacturer||'').trim(),model:String(hw.Model||'').trim(),product_name:String(hw.ProductName||'').trim(),part_number:/battery/i.test(kind)?String((hw.BatteryModels||[])[0]||'').trim():''}}
+function researchDetails(kind,hw){
+ // Component inventory helps upgrade research; module and drive part numbers are not personal data.
+ let text='';
+ if(/ram|memory/i.test(kind)){const mods=arr(hw.Modules),total=Number(hw.TotalPhysicalMemory);text=mods.length+' module(s): '+mods.map(m=>(m.Capacity?(Number(m.Capacity)/1073741824).toFixed(0)+' GB':'unknown size')+' '+(m.Speed||m.ConfiguredClockSpeed||'?')+' MT/s part '+String(m.PartNumber||'unknown').trim()).join('; ')+(total>0?'; total '+(total/1073741824).toFixed(1)+' GB':'');}
+ else if(/ssd|storage/i.test(kind))text=arr(hw.Drives).map(d=>(d.Model||'Unknown drive')+' '+(d.Size?(Number(d.Size)/1e9).toFixed(0)+' GB':'')+' '+(d.InterfaceType||'')).join('; ');
+ return text.replace(/[^\w .,:;+\-\/()]/g,'').replace(/\s+/g,' ').trim().slice(0,200);
+}
+function researchFields(kind,hw){return {kind,manufacturer:String(hw.Manufacturer||'').trim(),model:String(hw.Model||'').trim(),product_name:String(hw.ProductName||'').trim(),part_number:/battery/i.test(kind)?String((hw.BatteryModels||[])[0]||'').trim():'',details:researchDetails(kind,hw)}}
 function computerName(hw){return [hw.Manufacturer,hw.ProductName,hw.Model].map(x=>String(x||'').trim()).filter(Boolean).join(' ')||'Unknown computer'}
 async function prepareUpgradeResearch(){
  if(!pendingResearch)return;
@@ -118,45 +125,37 @@ async function prepareUpgradeResearch(){
  const live=plan.provider!=='none';
  const shared=Object.entries(plan.shared_fields).map(([k,v])=>'• '+k.replace(/_/g,' ')+': '+v).join('\n');
  const message=live
-  ?`PC Medic will send these search terms to Brave Search:\n\n${plan.queries.map(q=>'• '+q).join('\n')}\n\nComputer details included:\n${shared}\n\nNo serial number, IP address, username, event logs or scan data are sent. The search provider may log these terms. Results are candidates, not confirmed compatible parts.`
-  :`Live web search is not set up on this PC (no Brave Search API key), so PC Medic cannot search for you.\n\nIt will show manufacturer and retailer links for:\n${shared}\n\nNothing is sent until you click a link yourself.`;
- const ok=await pcConfirm(live?'Search online for parts?':'Show research links?',message,live?'Search online':'Show links');
+  ?`PC Medic will send this request to Anthropic's Claude (${plan.model}), which searches the web itself:\n\n“${plan.prompt}”\n\nClaude chooses its own search terms, up to ${plan.max_searches} searches, limited to: ${plan.domains.join(', ')}.\n\nNo serial number, IP address, username, event logs or scan data are sent. Cost: about $0.01 per search plus Claude usage, billed to your Anthropic account. Results are candidates, not confirmed compatible parts.`
+  :`Claude web search is not set up on this PC (no ANTHROPIC_API_KEY), so PC Medic cannot search for you.\n\nIt will show manufacturer and retailer links for:\n${shared}\n\nNothing is sent until you click a link yourself.`;
+ const ok=await pcConfirm(live?'Search online with Claude?':'Show research links?',message,live?'Search with Claude':'Show links');
  if(!ok){setBusy(false);$('assistant-status').textContent='Online research cancelled. Nothing was sent.';return;}
  document.getElementById('research-choices')?.remove();
  const name=computerName(hw);
- $('assistant-status').textContent=live?'Online research running · Searching manufacturer and retailer sources for '+name+'…':'Preparing manufacturer and retailer links…';
- $('symptom').value=(live?'Searching online for ':'Preparing links for ')+r.kind+' for '+name+'…\n\nNo product is considered compatible until its OEM specifications are verified.';
+ $('assistant-status').textContent=live?'Claude is searching manufacturer and retailer sites for '+name+' · usually 20–60 seconds…':'Preparing manufacturer and retailer links…';
+ $('symptom').value=(live?'Claude is researching ':'Preparing links for ')+r.kind+' for '+name+'…\n\nNo product is considered compatible until its OEM specifications are verified.';
  try{
   const found=await request('/api/parts-research',{approved:true,...fields});
-  const possible=found.sources.filter(x=>x.match==='possible').length;
   const lines=[`Research: ${r.kind} for ${name}`,`Original question: ${r.question}`];
   if(fields.part_number)lines.push(`Windows reports the installed battery model as ${fields.part_number}. Match this number on any replacement, and check the label on the old battery.`);
   if(!found.searched)lines.push(found.errors[0]||'Live search did not run.');
-  else if(found.sources.length)lines.push(`Brave Search found ${found.sources.length} relevant result(s); ${possible} mention this exact model or part number ("possible match"). The others mention only the manufacturer ("unverified").`);
-  else lines.push('Brave Search ran but returned nothing specific to this model. Use the manufacturer and retailer links below.');
-  if(found.searched&&found.errors.length)lines.push('Search problems: '+found.errors.join(' '));
+  else{
+   if(found.answer)lines.push('Claude’s findings (numbers in brackets refer to the sources listed below):\n'+found.answer);
+   lines.push(`Claude ran ${found.search_count} web search(es)`+(found.search_queries.length?': '+found.search_queries.map(q=>'“'+q+'”').join(', '):'')+'. Answer generated by '+found.model+'; check the cited sources before relying on it.');
+   if(!found.sources.length)lines.push('Claude cited no sources, so treat this answer as unconfirmed. Use the manufacturer and retailer links below.');
+   if(found.errors.length)lines.push('Search problems: '+found.errors.join(' '));
+  }
   lines.push(/charger/i.test(r.kind)?'Before buying a charger: confirm the connector shape, output voltage and wattage on the label of your original adapter or in the manufacturer specifications for your exact model. A lower-wattage adapter may charge slowly or not at all under load.':'Before buying: confirm the exact OEM part number, form factor and supported limits in the manufacturer specifications.');
   $('symptom').value=lines.join('\n\n');
   const wrap=html('div','assist-status');wrap.id='research-results';
-  wrap.append(html('strong','',found.sources.length?'Search results · Verify before purchasing':'Research links · Open in your browser'));
+  wrap.append(html('strong','',found.sources.length?'Sources Claude cited · Verify before purchasing':'Research links · Open in your browser'));
   const badge={possible:'Possible match',unverified:'Unverified'},where={manufacturer:'Manufacturer',retailer:'Retailer',other:'Other site'};
-  const addLink=(item,label)=>{const line=html('div');line.style.marginTop='9px';if(label){const tag=html('span','pill',label);tag.style.marginRight='8px';line.append(tag)}const link=html('a','',item.title||item.url);link.href=item.url;link.target='_blank';link.rel='noopener noreferrer';line.append(link);if(item.snippet)line.append(html('small','',' — '+item.snippet));wrap.append(line)};
-  for(const item of found.sources)addLink(item,badge[item.match]+' · '+where[item.source_type]);
-  if(found.sources.length)wrap.append(html('div','muted small below','Open these searches yourself:'));
+  const addLink=(item,label)=>{const line=html('div');line.style.marginTop='9px';if(label){const tag=html('span','pill',label);tag.style.marginRight='8px';line.append(tag)}const link=html('a','',item.title||item.url);link.href=item.url;link.target='_blank';link.rel='noopener noreferrer';line.append(link);if(item.snippet)line.append(html('small','',' — “'+item.snippet+'”'));wrap.append(line)};
+  found.sources.forEach((item,i)=>addLink(item,'['+(i+1)+'] '+badge[item.match]+' · '+where[item.source_type]));
+  if(found.sources.length)wrap.append(html('div','muted small below','Or search yourself:'));
   for(const item of found.search_links)addLink(item,'');
   wrap.append(html('div','muted small below',(found.searched?'Searched '+new Date(found.searched_at_utc).toLocaleString()+'. ':'')+found.note));
-  if(found.sources.length){
-   const ai=html('button','primary','Ask Claude or OpenAI to review these results');ai.type='button';ai.style.marginTop='14px';
-   ai.onclick=()=>{
-    const shortlist=found.sources.slice(0,3).map(x=>x.title+' '+x.url).join(' | ');
-    $('question').value=(`Assess possible ${r.kind} replacements for ${name}. Original request: ${r.question}. Candidate sources: ${shortlist}. Treat listings as unverified. Explain exact OEM compatibility checks; do not invent part numbers or prices.`).slice(0,500);
-    document.querySelectorAll('[data-modal-provider]').forEach(b=>b.classList.toggle('selected',b.dataset.modalProvider==='claude'));
-    $('provider-dialog-title').textContent='Review web findings with AI';
-    $('provider-dialog').showModal();
-   };wrap.append(ai);
-  }
   $('symptom').after(wrap);pendingResearch=null;
-  $('assistant-status').textContent=found.searched?'Online search complete · '+found.sources.length+' relevant result(s) shown under the assessment.':'Live search not configured · Manufacturer and retailer links shown under the assessment.';
+  $('assistant-status').textContent=found.searched?'Claude research complete · '+found.sources.length+' cited source(s) shown under the assessment.':'Search not available · '+(found.errors[0]||'Manufacturer and retailer links shown under the assessment.');
   $('symptom').scrollIntoView({behavior:'smooth',block:'start'});
  }catch(e){$('assistant-status').textContent='Research could not complete: '+e.message+'. No parts were marked compatible.';$('symptom').value='Online research could not complete: '+e.message+'\n\nTry again or open the manufacturer parts catalog. No purchase recommendation has been verified.';showResearchOffer(r.kind,r.question,r.details);}
 }

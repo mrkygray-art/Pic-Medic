@@ -9,19 +9,21 @@
 
 ## Changes
 - `intent_engine.classify(question, context)` is now the single routing path. It adds the intents `replacement_part` (with `part`), `open_tool` (with `tool`), `ports_clarify`, `research_confirm` and `research_decline`. Upgrade questions return `ram_upgrade`, `storage_upgrade` or `graphics_upgrade`. The browser sends `context.pending_research`, so short replies are interpreted against the open offer.
-- `parts_research.py` was rewritten:
-  - It searches live only through the Brave Search API (`BRAVE_SEARCH_API_KEY`). Without a key it says plainly that it did not search and returns direct manufacturer and retailer links.
-  - It runs an OEM-first query, a retailer query and, for batteries, a part-number query, in parallel.
-  - It drops homepages and off-topic hits. Every hit is labeled **Possible match** (mentions the exact model or part number) or **Unverified** (mentions only the manufacturer). Nothing is ever labeled verified.
-- New endpoint `POST /api/parts-research-preview` returns the exact queries and shared fields. The consent dialog shows them before anything is sent.
+- `parts_research.py` was rewritten to use **Claude's server-side web search**:
+  - It uses the official `anthropic` SDK (`pip install -r requirements.txt`) and needs `ANTHROPIC_API_KEY`. The model is `claude-opus-5-5`; override it with `PCMEDIC_RESEARCH_MODEL`. Anthropic's server-side fallback is on (`fallbacks: "default"`), so a declined request is retried on another model.
+  - It uses `web_search_20260318` with direct calls (`allowed_callers: ["direct"]`). Dynamic filtering returned answers with no citations. The tool is capped at 5 searches and limited to the manufacturer's domain plus major retailers.
+  - Claude's answer is shown with numbered citations. Each cited source is labeled **Possible match** (mentions the exact model, a model token such as "15IRH8", or the part number) or **Unverified**. Nothing is ever labeled verified.
+  - Without a key, or if the API fails, it says plainly that it did not search and returns direct manufacturer and retailer links.
+  - Cost: $10 per 1,000 searches plus tokens. A live charger run used 2 searches and about 25k input / 800 output tokens, roughly $0.14.
+- New endpoint `POST /api/parts-research-preview` returns the exact prompt, allowed domains and shared fields. The consent dialog shows them before anything is sent.
 - `hardware_advisor.inventory()` now also reports `ProductName` (for example "LOQ 15IRH8", from `Win32_ComputerSystemProduct.Version`) and `BatteryModels` (the OEM battery part number, for example "L22D4PA0"). The battery DeviceID is excluded because it contains a serial number.
 - The UI clears stale offers when a new topic starts, disables research buttons while research runs, scrolls the results into view, and corrects the version label.
 
 ## Tests
-`python -m unittest discover -p "test_*.py"` runs 30 tests: the handoff acceptance table, research filtering and labels, the no-key behavior and HTTP contracts.
+`python -m unittest discover -p "test_*.py"` runs 31 tests: the handoff acceptance table, research labels and citations (Claude mocked, no cost), the no-key behavior and HTTP contracts.
 
 ## Known limitations
-- Live product research requires a Brave Search API key set as a server environment variable.
+- Live research requires an Anthropic API key and is billed per use. Claude picks its own search terms, so the consent dialog shows the prompt and domains, not the queries.
 - Charger wattage and connector cannot be read from Windows. The user must check the adapter label or Lenovo PSREF.
 - The physical-port and network-port collectors are still not implemented. Those answers explain the limitation instead.
 - Server-wide scan locking covers only `/api/scan`, not Performance Watch.

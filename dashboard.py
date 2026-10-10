@@ -385,7 +385,7 @@ class Handler(BaseHTTPRequestHandler):
     return self.send_json(result)
    except (RuntimeError,ValueError,OSError) as exc:return self.send_json({'error':str(exc)},502)
   if path in ('/api/parts-research','/api/parts-research-preview'):
-   fields={k:body.get(k,'') for k in ('kind','manufacturer','model','product_name','part_number')}
+   fields={k:body.get(k,'') for k in ('kind','manufacturer','model','product_name','part_number','details')}
    try:
     if path=='/api/parts-research-preview':return self.send_json(parts_preview(**fields))
     if body.get('approved') is not True:return self.send_json({'error':'Explicit online research approval required'},403)
