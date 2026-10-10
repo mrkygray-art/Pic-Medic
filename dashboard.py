@@ -1,0 +1,442 @@
+"""PC Medic AI 1.6.1: localhost-only, read-only diagnostics and offline guided Q&A."""
+import argparse
+import json
+import os
+import secrets
+import subprocess
+import sys
+import threading
+from collections import Counter
+from datetime import datetime, timezone
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import urlparse
+from hardware_advisor import inventory as hardware_inventory, ram_advice
+from parts_research import research as parts_research
+from network_advisor import inventory as network_inventory
+from intent_engine import classify as classify_intent
+from analyze import analyze
+from ai_engine import ask as ai_ask, safe_summary, sanitize_investigation
+from process_diagnostics import collect_processes
+from performance_diagnostics import collect_performance, summarize
+from storage_explorer import inventory, recycle
+from device_diagnostics import inventory as device_inventory
+
+BASE = Path(__file__).resolve().parent
+SCAN = BASE / 'scan.json'
+HISTORY = BASE / 'scan_history.json'
+HISTORY_LOCK = threading.Lock()
+LOCK = threading.Lock()
+TOKEN = secrets.token_urlsafe(32)
+DEMO = {
+ 'generated_at_utc':'2026-10-09T17:00:00+00:00', 'platform':'Windows',
+ 'checks':{
+ 'os':{'status':'ok','data':{'Caption':'Microsoft Windows 11 Pro','Version':'10.0.26100'}},
+ 'cpu':{'status':'ok','data':{'Name':'Demo CPU · 8 cores','LoadPercentage':24}},
+ 'memory':{'status':'ok','data':{'TotalGB':16,'FreeGB':1.4}},
+ 'disks':{'status':'ok','data':[{'DeviceID':'C:','SizeGB':476,'FreeGB':73.2}]},
+ 'storage_health':{'status':'ok','data':{'FriendlyName':'Demo SSD','HealthStatus':'Healthy'}},
+ 'network':{'status':'ok','data':{'InterfaceDescription':'Demo Wi-Fi','Status':'Up'}},
+ 'event_log_analysis':{'status':'ok','data':{'window_hours':24,'limit_per_channel':80,'channels':[{'name':'System','status':'ok','events':[{'Id':20,'ProviderName':'Microsoft-Windows-WindowsUpdateClient','TimeCreated':'2026-10-09T12:00:00'}]}]}}
+ }}
+
+def get_report(demo):
+ if demo: return DEMO
+ if not SCAN.exists(): raise FileNotFoundError('No scan.json yet. Click Run New Scan.')
+ report = json.loads(SCAN.read_text(encoding='utf-8-sig'))
+ if not isinstance(report, dict) or not isinstance(report.get('checks'),dict):
+  raise ValueError('Invalid scan: missing checks')
+ return report
+
+def watch_only_report(investigation):
+ """Use a clearly labeled partial report when no full health scan exists."""
+ if not isinstance(investigation,dict) or not isinstance(investigation.get('performance_samples'),list) or not investigation['performance_samples']:
+  raise FileNotFoundError('No health scan or performance evidence is available. Run a diagnostic first.')
+ return {'generated_at_utc':datetime.now(timezone.utc).isoformat(), 'checks':{},
+         'evidence_scope':'performance_watch_only', 'partial':True}
+
+def offline_watch_answer(question, investigation):
+ from ai_engine import sanitize_investigation
+ safe=sanitize_investigation(investigation)
+ samples=safe.get('performance_samples',[])
+ if not samples:raise ValueError('No usable performance samples to analyze')
+ names=[('CPU','cpu_percent'),('Memory','memory_used_percent'),('Disk','disk_busy_percent')]
+ parts=[]
+ for label,key in names:
+  values=[x[key] for x in samples if isinstance(x,dict) and isinstance(x.get(key),(int,float))]
+  if values:parts.append(f'{label}: peak {max(values):.1f}%, average {sum(values)/len(values):.1f}%')
+ lines=['Performance Watch only — no full health check has been run.',
+        f'{len(samples)} performance samples reviewed. '+('; '.join(parts) if parts else 'No numeric counters available.')+'.',
+        'This short sample cannot rule out intermittent freezing or establish root cause.',
+        'Next: reproduce the issue while watching; inspect Task Manager and Windows event logs around the freeze. A full Health Check can add storage, driver, and event evidence.',
+        'Offline rule-based interpretation; no cloud request or repairs.']
+ return {'answer':'\n\n'.join(lines),'ai_generated':False,'evidence_scope':'performance_watch_only'}
+
+def answer(question, report):
+ q=question.lower()
+ analysis=analyze(report)
+ findings=analysis['findings']
+ checks=report.get('checks',{})
+ def data(k):return checks.get(k,{}).get('data')
+ lines=[]
+ if any(w in q for w in ('slow','freeze','lag','performance','memory','ram')):
+  m=data('memory')
+  if isinstance(m,dict) and m.get('TotalGB'):
+   try: lines.append(f"Memory snapshot: {(1-float(m['FreeGB'])/float(m['TotalGB']))*100:.1f}% used. A snapshot cannot prove the cause of slowdowns.")
+   except (ValueError,TypeError,ZeroDivisionError): pass
+  lines.append('Next: repeat the scan during the slowdown, and inspect Task Manager → Processes (sort by Memory and CPU).')
+ elif any(w in q for w in ('disk','drive','storage','space','full')):
+  ds=data('disks'); ds=ds if isinstance(ds,list) else ([ds] if isinstance(ds,dict) else [])
+  for d in ds:
+   if d.get('SizeGB') and d.get('FreeGB') is not None:
+    lines.append(f"Drive {d.get('DeviceID','?')}: {d['FreeGB']} GB free of {d['SizeGB']} GB.")
+  lines.append('Next: inspect Settings → System → Storage; avoid deleting files until you have reviewed them.')
+ elif any(w in q for w in ('update','event','error','crash','restart')):
+  events=data('recent_system_events'); events=events if isinstance(events,list) else ([events] if isinstance(events,dict) else [])
+  lines.append(f'{len(events)} critical/error events in the sampled report. Event IDs alone do not prove root cause.')
+  lines.append('Next: match event timestamps to the symptoms and inspect Windows Update history for failures.')
+ elif any(w in q for w in ('wifi','wi-fi','internet','network','dns')):
+  net=data('network'); net=net if isinstance(net,list) else ([net] if isinstance(net,dict) else [])
+  lines.append(f'{len(net)} network adapter records collected; adapter status alone cannot prove internet connectivity.')
+  lines.append('Next: check gateway connectivity and DNS resolution with Windows network diagnostics.')
+ else:
+  lines.append(f"I found {len(findings)} rule-based findings in this scan. Ask about memory, slow performance, storage, Windows events, or networking.")
+  if findings: lines.append('First finding: '+findings[0]['title']+'.')
+ lines.append('This is offline, rule-based guidance—not a connected AI model. No repairs were made.')
+ return {'answer':'\n\n'.join(lines),'ai_generated':False,'evidence_time':report.get('generated_at_utc')}
+
+# Approved built-in Windows tools only. Opening a tool never applies a repair.
+WINDOWS_TOOLS = {
+ 'powershell': ('Windows PowerShell', 'powershell.exe'),
+ 'command-prompt': ('Command Prompt', 'cmd.exe'),
+ 'optimize': ('Optimize Drives', 'dfrgui.exe'),
+ 'event-viewer': ('Event Viewer', 'eventvwr.msc'),
+ 'services': ('Services', 'services.msc'),
+ 'startup': ('Startup Apps', 'ms-settings:startupapps'),
+ 'system-config': ('System Configuration', 'msconfig.exe'),
+ 'device-manager': ('Device Manager', 'devmgmt.msc'),
+ 'task-manager': ('Task Manager', 'taskmgr.exe'),
+ 'windows-update': ('Windows Update', 'ms-settings:windowsupdate'),
+ 'reliability': ('Reliability Monitor', 'perfmon.exe'),
+ 'storage-settings': ('Windows Storage Settings', 'ms-settings:storagesense'),
+ 'display': ('Display Settings', 'ms-settings:display'),
+ 'power': ('Power & Battery Settings', 'ms-settings:powersleep'),
+ 'lockscreen': ('Lock Screen Settings', 'ms-settings:lockscreen'),
+ 'windows-security': ('Windows Security', 'windowsdefender:'),
+ 'resource-monitor': ('Resource Monitor', 'resmon.exe'),
+ 'system-information': ('System Information', 'msinfo32.exe'),
+ 'task-scheduler': ('Task Scheduler', 'taskschd.msc'),
+ 'disk-management': ('Disk Management', 'diskmgmt.msc'),
+ 'computer-management': ('Computer Management', 'compmgmt.msc'),
+ 'network-connections': ('Network Connections', 'ncpa.cpl'),
+ 'memory-diagnostic': ('Windows Memory Diagnostic', 'mdsched.exe'),
+ 'advanced-startup': ('Advanced Startup / Recovery', 'ms-settings:recovery'),
+ 'security-offline-scan': ('Windows Security Scan Options', 'windowsdefender:'),
+}
+
+def shell_open_windows(executable, arguments=None, *, elevate_if_required=False):
+ """Launch an allowlisted Windows tool with ShellExecute, preserving Windows UAC."""
+ import ctypes
+ from ctypes import wintypes
+ shell = ctypes.WinDLL('shell32', use_last_error=True)
+ shell.ShellExecuteW.argtypes = [wintypes.HWND, wintypes.LPCWSTR, wintypes.LPCWSTR,
+                                wintypes.LPCWSTR, wintypes.LPCWSTR, ctypes.c_int]
+ shell.ShellExecuteW.restype = ctypes.c_void_p
+ def invoke(verb):
+  return shell.ShellExecuteW(None, verb, str(executable), arguments, None, 1)
+ result = invoke('open')
+ if result <= 32 and elevate_if_required and result in (5, 740):
+  result = invoke('runas')
+ if result <= 32:
+  raise RuntimeError(f'Windows could not open the utility (ShellExecute code {result}).')
+
+
+def launch_windows_tool(tool):
+ if os.name != 'nt': raise RuntimeError('Windows only')
+ windir = Path(os.environ.get('WINDIR', r'C:\Windows'))
+ system32 = windir / 'System32'
+ label, target = WINDOWS_TOOLS[tool]
+ if target.startswith(('ms-settings:', 'windowsdefender:')):
+  shell_open_windows(target)
+ elif target.endswith('.msc'):
+  shell_open_windows(str(system32 / 'mmc.exe'), f'"{system32 / target}"', elevate_if_required=True)
+ elif target.endswith('.cpl'):
+  shell_open_windows(str(system32 / 'control.exe'), f'"{system32 / target}"')
+ elif tool == 'reliability':
+  shell_open_windows(str(system32 / 'perfmon.exe'), '/rel')
+ else:
+  shell_open_windows(str(system32 / target), elevate_if_required=True)
+
+import re
+
+# Advanced actions are allowlisted, local-only, and never initiated by AI text.
+def windows_edition():
+ if os.name!='nt': return 'Unavailable'
+ import winreg
+ try:
+  with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r'SOFTWARE\Microsoft\Windows NT\CurrentVersion') as key:
+   return str(winreg.QueryValueEx(key,'ProductName')[0]) + ' (' + str(winreg.QueryValueEx(key,'EditionID')[0]) + ')'
+ except OSError: return 'Unknown Windows edition'
+
+def has_policy_editor():
+ if os.name!='nt': return False
+ import winreg
+ try:
+  with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r'SOFTWARE\Microsoft\Windows NT\CurrentVersion') as key:
+   edition=str(winreg.QueryValueEx(key,'EditionID')[0]).lower()
+  return not any(x in edition for x in ('core','home'))
+ except OSError: return False
+
+def registry_lookup(root, path, value):
+ import winreg
+ roots={'HKLM':winreg.HKEY_LOCAL_MACHINE,'HKCU':winreg.HKEY_CURRENT_USER}
+ if root not in roots or not isinstance(path,str) or len(path)>240 or not re.fullmatch(r'[A-Za-z0-9 _\\.{}()@+,-]+',path):
+  raise ValueError('Invalid registry path')
+ if not isinstance(value,str) or len(value)>120 or not re.fullmatch(r'[A-Za-z0-9 _.-]*',value):
+  raise ValueError('Invalid registry value name')
+ # Avoid huge binary dumps or arbitrary sensitive locations.
+ blocked=('sam','security','system\\currentcontrolset\\control\\lsa','software\\microsoft\\credentials','software\\microsoft\\protected storage system provider')
+ if any(path.lower().startswith(x) for x in blocked):raise ValueError('Protected registry location')
+ try:
+  with winreg.OpenKey(roots[root],path,0,winreg.KEY_READ) as key:
+   data,kind=winreg.QueryValueEx(key,value)
+ except FileNotFoundError:raise ValueError('Registry key or value not found')
+ if isinstance(data,bytes):return {'value':'(binary value not displayed)','type':kind}
+ result=str(data)
+ return {'value':result[:500] + ('…' if len(result)>500 else ''),'type':kind}
+
+def launch_advanced(tool):
+ if os.name != 'nt': raise RuntimeError('Windows only')
+ system32 = Path(os.environ.get('WINDIR', r'C:\Windows')) / 'System32'
+ windir = system32.parent
+ if tool in ('gpedit', 'secpol') and not has_policy_editor():
+  raise ValueError('Not available on this Windows edition')
+ if tool in ('gpedit', 'secpol'):
+  policy = system32 / (tool + '.msc')
+  if not policy.exists(): raise ValueError('Tool not installed')
+  shell_open_windows(str(system32 / 'mmc.exe'), f'"{policy}"', elevate_if_required=True)
+ elif tool == 'regedit':
+  # Registry Editor lives in the Windows root, not System32.
+  shell_open_windows(str(windir / 'regedit.exe'), elevate_if_required=True)
+ elif tool == 'verifier':
+  shell_open_windows(str(system32 / 'verifier.exe'), elevate_if_required=True)
+ elif tool == 'wpr':
+  # Show help only. Never begin a trace automatically.
+  shell_open_windows(str(system32 / 'cmd.exe'), '/k wpr -help')
+ else:
+  raise ValueError('Unknown advanced tool')
+
+def export_registry():
+ # Export only HKCU Software PC Medic's own configuration scope, not entire registry.
+ # Registry Editor's File > Export is preferable for full exports and requires user choice.
+ raise ValueError('Use Registry Editor > File > Export to select a specific key and safe destination')
+
+def history_read():
+ if not HISTORY.exists():return []
+ try:
+  data=json.loads(HISTORY.read_text(encoding='utf-8'))
+  return data[-100:] if isinstance(data,list) else []
+ except (ValueError,OSError):return []
+
+def history_append(item):
+ with HISTORY_LOCK:
+  records=history_read()
+  records.append(item)
+  temp=HISTORY.with_suffix('.tmp')
+  temp.write_text(json.dumps(records[-100:],ensure_ascii=False,indent=2),encoding='utf-8')
+  temp.replace(HISTORY)
+
+def safe_history_entry(body):
+ # No raw event messages, file paths, process names, IPs, or API keys are persisted.
+ stats=body.get('stats',{})
+ if not isinstance(stats,dict):raise ValueError('Invalid metrics')
+ clean={}
+ for k in ('cpu_peak','memory_peak','disk_peak','memory_latest','c_free_pct'):
+  v=stats.get(k)
+  if v is not None:
+   if isinstance(v,bool) or not isinstance(v,(int,float)) or not 0<=v<=100:raise ValueError('Invalid metric')
+   clean[k]=round(v,2)
+ titles=body.get('finding_titles',[])
+ if not isinstance(titles,list):raise ValueError('Invalid findings')
+ # Counts only: no free-text diagnostic evidence stored.
+ return {'at_utc':datetime.now(timezone.utc).isoformat(),'metrics':clean,
+         'finding_count':min(max(int(body.get('finding_count',0)),0),1000),
+         'event_window_hours':24,'performance_samples':min(max(int(body.get('performance_samples',0)),0),500)}
+
+def disk_forecast(records):
+ """Estimate C: free-space trend from local scan-history percentages; no disk writes."""
+ from datetime import datetime
+ points=[]
+ for r in records:
+  try:
+   t=datetime.fromisoformat(r['at_utc'].replace('Z','+00:00')).timestamp()
+   free=r.get('metrics',{}).get('c_free_pct')
+   if isinstance(free,(int,float)) and not isinstance(free,bool) and 0<=free<=100:points.append((t,float(free)))
+  except (ValueError,TypeError,KeyError,OverflowError):pass
+ if len(points)<3:return {'status':'insufficient','message':'At least 3 health checks across 24 hours are needed for a forecast.'}
+ points.sort()
+ span=(points[-1][0]-points[0][0])/86400
+ if span<1:return {'status':'insufficient','message':'Collect scans over at least 24 hours before forecasting.'}
+ x=[(t-points[0][0])/86400 for t,_ in points];y=[v for _,v in points]
+ mx=sum(x)/len(x);my=sum(y)/len(y);den=sum((v-mx)**2 for v in x)
+ slope=sum((a-mx)*(b-my) for a,b in zip(x,y))/den if den else 0
+ if slope>=-0.1:return {'status':'stable','message':'No reliable declining free-space trend detected.'}
+ days=y[-1]/-slope
+ if days>365:return {'status':'stable','message':'Free-space decline is too gradual for a useful short-term forecast.'}
+ return {'status':'estimate','days_until_full':round(days),'free_pct':round(y[-1],1),'pct_points_per_day':round(slope,2),'message':'Rough linear estimate based on scan history, not a guarantee.'}
+
+class Handler(BaseHTTPRequestHandler):
+ def do_GET(self):
+  path=urlparse(self.path).path
+  if path=='/': return self.send_file(BASE/'dashboard.html','text/html; charset=utf-8')
+  if path=='/api/network-info':
+   return self.send_json({'network':network_inventory()})
+  if path=='/api/hardware-upgrade':
+   try: return self.send_json({'hardware':hardware_inventory()})
+   except Exception as exc: return self.send_json({'hardware':{'available':False,'reason':'Windows hardware collector encountered an error ('+type(exc).__name__+').'}},200)
+  if path=='/api/history':return self.send_json({'history':history_read()})
+  if path=='/api/disk-forecast':return self.send_json({'forecast':disk_forecast(history_read())})
+  if path=='/api/advanced-capabilities':return self.send_json({'edition':windows_edition(),'policy_available':has_policy_editor(),'windows':os.name=='nt'})
+  if path=='/api/share-preview':
+   try:return self.send_json({'evidence':safe_summary(get_report(self.server.demo))})
+   except (FileNotFoundError,ValueError,OSError,json.JSONDecodeError) as exc:return self.send_json({'error':str(exc)},404)
+  if path=='/api/report':
+   try:
+    report=get_report(self.server.demo)
+    return self.send_json({'report':report,'analysis':analyze(report),'demo':self.server.demo,'csrf':TOKEN})
+   except (FileNotFoundError,ValueError,OSError,json.JSONDecodeError) as exc:return self.send_json({'error':str(exc),'csrf':TOKEN},404)
+  return self.send_json({'error':'Not found'},404)
+ def do_POST(self):
+  path=urlparse(self.path).path
+  if self.headers.get('X-PC-Medic-Token')!=TOKEN: return self.send_json({'error':'Invalid request token'},403)
+  origin=self.headers.get('Origin')
+  host=self.headers.get('Host','')
+  if origin and origin not in (f'http://{host}',):return self.send_json({'error':'Invalid origin'},403)
+  try:
+   n=int(self.headers.get('Content-Length','0'))
+   if n<0 or n>(32768 if path in ('/api/performance-summary','/api/ai-ask','/api/ask') else 4096): return self.send_json({'error':'Request too large'},413)
+   body=json.loads(self.rfile.read(n) or b'{}')
+   if not isinstance(body,dict): return self.send_json({'error':'Expected a JSON object'},400)
+   if not isinstance(body,dict):raise ValueError('Invalid request')
+  except (ValueError,json.JSONDecodeError):return self.send_json({'error':'Invalid JSON'},400)
+  if path=='/api/disk-health':
+   if self.server.demo or os.name!='nt':return self.send_json({'error':'Disk scan is available on Windows only'},403)
+   from collector import powershell, COLLECTORS
+   results={name:powershell(COLLECTORS[name],timeout=35) for name in ('storage_health','drive_reliability','disks')}
+   return self.send_json({'checks':results,'read_only':True,'at_utc':datetime.now(timezone.utc).isoformat()})
+  if path=='/api/history-save':
+   if self.server.demo:return self.send_json({'error':'History disabled in demo'},403)
+   try:
+    history_append(safe_history_entry(body))
+    return self.send_json({'saved':True})
+   except (ValueError,TypeError,OSError) as exc:return self.send_json({'error':str(exc)},400)
+  if path=='/api/advanced-lookup':
+   if self.server.demo or os.name!='nt':return self.send_json({'error':'Windows only'},403)
+   try:return self.send_json(registry_lookup(body.get('root'),body.get('path'),body.get('value','')))
+   except (ValueError,OSError) as exc:return self.send_json({'error':str(exc)},400)
+  if path=='/api/advanced-launch':
+   if self.server.demo or os.name!='nt':return self.send_json({'error':'Windows only'},403)
+   tool=body.get('tool')
+   if tool not in ('regedit','verifier','wpr','gpedit','secpol'):return self.send_json({'error':'Unknown tool'},400)
+   if body.get('approved') is not True or body.get('confirmed') is not True:return self.send_json({'error':'Two-step confirmation required'},403)
+   if tool in ('verifier','wpr') and body.get('technician') is not True:return self.send_json({'error':'Technician mode required'},403)
+   try:
+    launch_advanced(tool)
+    return self.send_json({'message':'Windows launch requested. No changes were made by PC Medic.'})
+   except (ValueError,OSError,RuntimeError) as exc:return self.send_json({'error':str(exc)},400)
+  if path in ('/api/open-optimize', '/api/windows-tool'):
+   if self.server.demo or os.name!='nt':return self.send_json({'error':'Windows only; unavailable in demo'},403)
+   tool='optimize' if path=='/api/open-optimize' else body.get('tool')
+   # Strict allowlist: no executable paths or arguments are accepted from the browser.
+   if not isinstance(tool,str) or tool not in WINDOWS_TOOLS:
+    return self.send_json({'error':'Unknown Windows tool'},400)
+   if body.get('approved') is not True:
+    return self.send_json({'error':'User approval is required to open Windows tools'},403)
+   if tool=='memory-diagnostic' and body.get('reboot_warning_acknowledged') is not True:
+    return self.send_json({'error':'Memory Diagnostic may require a restart; acknowledge the warning first'},403)
+   try:
+    launch_windows_tool(tool)
+    return self.send_json({'message':WINDOWS_TOOLS[tool][0]+' launch requested. No maintenance action was performed.'})
+   except (OSError,RuntimeError) as exc:return self.send_json({'error':str(exc)},500)
+  if path=='/api/devices':
+   try:return self.send_json(device_inventory(demo=self.server.demo))
+   except (RuntimeError,subprocess.TimeoutExpired) as exc:return self.send_json({'error':str(exc)},500)
+  if path=='/api/storage-search':
+   if self.server.demo:return self.send_json({'error':'Storage Explorer unavailable in demo mode'},403)
+   try:return self.send_json(inventory(body.get('minimum_mb',100),body.get('category','all'),body.get('scope','profile')))
+   except (RuntimeError,ValueError) as exc:return self.send_json({'error':str(exc)},400)
+  if path=='/api/storage-recycle':
+   if self.server.demo:return self.send_json({'error':'Storage Explorer unavailable in demo mode'},403)
+   try:
+    if not isinstance(body.get('id'),str):raise ValueError('Invalid selection')
+    if body.get('approved') is not True:raise ValueError('File-specific approval is required')
+    return self.send_json(recycle(body['id']))
+   except (RuntimeError,ValueError,OSError,subprocess.TimeoutExpired) as exc:return self.send_json({'error':str(exc)},400)
+  if path=='/api/ai-ask':
+   question=body.get('question','');provider=body.get('provider','');consent=body.get('consent')
+   if consent is not True:return self.send_json({'error':'Explicit data-sharing consent required'},403)
+   if not isinstance(question,str) or not 1<=len(question.strip())<=500:return self.send_json({'error':'Question must be 1–500 characters'},400)
+   if provider not in ('claude','openai'):return self.send_json({'error':'Select Claude or OpenAI'},400)
+   try:
+    investigation=body.get('investigation')
+    try: current_report=get_report(self.server.demo)
+    except FileNotFoundError: current_report=watch_only_report(investigation)
+    result=ai_ask(provider,question,current_report,self.server.demo,body.get('tool_approved') is True,investigation)
+    return self.send_json(result)
+   except (RuntimeError,ValueError,OSError) as exc:return self.send_json({'error':str(exc)},502)
+  if path=='/api/parts-research':
+   if body.get('approved') is not True:return self.send_json({'error':'Explicit online research approval required'},403)
+   try:
+    return self.send_json(parts_research(body.get('kind',''),body.get('manufacturer',''),body.get('model','')))
+   except ValueError as exc:return self.send_json({'error':str(exc)},400)
+   except Exception:return self.send_json({'error':'Online research could not complete'},502)
+  if path=='/api/intent':
+   question=body.get('question','')
+   if not isinstance(question,str) or len(question)>1500:return self.send_json({'error':'Invalid question'},400)
+   return self.send_json(classify_intent(question))
+  if path=='/api/ask':
+   question=body.get('question','')
+   if not isinstance(question,str) or not 1<=len(question.strip())<=500:return self.send_json({'error':'Question must be 1–500 characters'},400)
+   try:
+    if any(t in question.lower() for t in ('add more memory','upgrade ram','more ram','install ram','replace ram','ram upgrade','memory upgrade','ram slots','memory slots')):
+     return self.send_json({'answer':ram_advice(hardware_inventory()),'ai_generated':False,'evidence_scope':'hardware_inventory'})
+    try: current_report=get_report(self.server.demo)
+    except FileNotFoundError: return self.send_json(offline_watch_answer(question,body.get('investigation')))
+    return self.send_json(answer(question,current_report))
+   except (ValueError,OSError,FileNotFoundError) as exc:return self.send_json({'error':str(exc)},404)
+  if path=='/api/performance-sample':
+   try:return self.send_json(collect_performance(demo=self.server.demo))
+   except (RuntimeError,subprocess.TimeoutExpired) as exc:return self.send_json({'error':str(exc)},500)
+  if path=='/api/performance-summary':
+   try:return self.send_json(summarize(body.get('samples')))
+   except (ValueError,TypeError) as exc:return self.send_json({'error':str(exc)},400)
+  if path=='/api/process-memory':
+   try: return self.send_json(collect_processes(demo=self.server.demo))
+   except (RuntimeError,subprocess.TimeoutExpired) as exc:return self.send_json({'error':str(exc)},500)
+  if path=='/api/scan':
+   if self.server.demo:return self.send_json({'error':'Demo mode cannot scan your computer'},403)
+   if os.name!='nt':return self.send_json({'error':'Windows scanning is only supported on Windows'},400)
+   if not LOCK.acquire(blocking=False):return self.send_json({'error':'Scan already running'},409)
+   try:
+    # Fixed allowlisted script, fixed output path, no shell or user-controlled command.
+    result=subprocess.run([sys.executable,str(BASE/'collector.py'),'--output',str(SCAN)],capture_output=True,text=True,timeout=180,check=False)
+    if result.returncode:return self.send_json({'error':'Collector failed','details':result.stderr[-500:]},500)
+    report=get_report(False)
+    return self.send_json({'report':report,'analysis':analyze(report),'demo':False,'csrf':TOKEN})
+   except subprocess.TimeoutExpired:return self.send_json({'error':'Scan timed out after 180 seconds'},504)
+   finally:LOCK.release()
+  return self.send_json({'error':'Not found'},404)
+ def send_file(self,path,content_type):
+  content=path.read_bytes();self.send_response(200);self.send_header('Content-Type',content_type);self.send_header('Content-Length',str(len(content)));self.send_header('Cache-Control','no-store');self.send_header('X-Content-Type-Options','nosniff');self.end_headers();self.wfile.write(content)
+ def send_json(self,obj,status=200):
+  content=json.dumps(obj,default=str).encode();self.send_response(status);self.send_header('Content-Type','application/json; charset=utf-8');self.send_header('Content-Length',str(len(content)));self.send_header('Cache-Control','no-store');self.send_header('X-Content-Type-Options','nosniff');self.end_headers();self.wfile.write(content)
+
+def main():
+ p=argparse.ArgumentParser();p.add_argument('--demo',action='store_true');p.add_argument('--port',type=int,default=8765);a=p.parse_args()
+ server=ThreadingHTTPServer(('127.0.0.1',a.port),Handler);server.demo=a.demo
+ print(f'PC Medic AI V1.10: http://127.0.0.1:{a.port} ({"SIMULATED DEMO" if a.demo else "LOCAL SCAN"})',flush=True)
+ print('Diagnostics are read-only. Storage Explorer can move explicitly selected personal files to Recycle Bin. Ctrl+C to stop.',flush=True)
+ try:server.serve_forever()
+ except KeyboardInterrupt:pass
+ finally:server.server_close()
+if __name__=='__main__':main()

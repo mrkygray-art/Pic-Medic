@@ -1,0 +1,676 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>PC Medic AI 1.15</title><style>
+:root{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#162239;background:#edf2f9;font-synthesis:none}*{box-sizing:border-box}body{margin:0}button,input,textarea,select{font:inherit}button{cursor:pointer}button:disabled{opacity:.52;cursor:not-allowed}button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid #83b6ff;outline-offset:2px}.app{min-height:100vh;display:grid;grid-template-columns:240px minmax(0,1fr)}aside{background:linear-gradient(155deg,#1c293c,#101c2d);color:#e7effd;padding:28px 16px;display:flex;flex-direction:column;gap:22px}.brand{display:flex;align-items:center;gap:12px;padding:8px 10px}.brand-icon{background:linear-gradient(135deg,#438ff5,#6bc4fa);color:white;border-radius:14px;width:42px;height:42px;display:grid;place-items:center;font-size:25px}.brand strong{display:block;font-size:18px}.brand small{font-size:11px;color:#aebed6}.nav{display:grid;gap:6px}.nav button{border:0;background:transparent;color:#cbd8e9;border-radius:12px;text-align:left;padding:12px 14px;display:flex;gap:12px;align-items:center}.nav button.active,.nav button:hover{background:#314965;color:white}.nav button span{font-size:18px;width:20px;text-align:center}.side-bottom{margin-top:auto;padding:10px;color:#b7c8df;font-size:12px}.dot{display:inline-block;width:8px;height:8px;background:#33c98b;border-radius:50%;margin-right:7px}main{min-width:0;padding:34px clamp(18px,3.2vw,52px) 70px;max-width:1700px;width:100%;margin:auto}.top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:24px}h1{font-size:clamp(29px,3vw,39px);letter-spacing:-1.3px;margin:0 0 5px;font-weight:760}h2{font-size:20px;letter-spacing:-.45px;margin:0}h3{font-size:15px;margin:0}.muted{color:#62718a}.top p{margin:0;color:#687a94}.status{white-space:nowrap;border:1px solid #dbe5f3;border-radius:30px;background:#ffffffb5;padding:10px 15px;color:#38546f;font-size:13px}.panel{background:#ffffffb8;border:1px solid #fff;border-radius:23px;padding:24px;box-shadow:0 14px 38px #30466a0d,0 1px 4px #30466a0c;min-width:0}.hero{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:center;background:linear-gradient(120deg,#fff,#f0f6ff 65%,#e4f2ff);margin-bottom:16px;padding:28px}.eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:1.5px;color:#427cce;font-weight:750;margin:0 0 8px}.hero h2{font-size:clamp(23px,2.3vw,30px);margin-bottom:8px}.hero p{line-height:1.6;margin:0;color:#62718a}.hero-action{text-align:center}.primary{border:0;color:white;background:linear-gradient(105deg,#3075ed,#3c9df6);border-radius:14px;padding:14px 23px;font-weight:650;box-shadow:0 8px 18px #3179e629}.secondary{border:1px solid #d9e4f2;color:#294360;background:#f1f6fc;border-radius:12px;padding:11px 16px;font-weight:600}.subtle{border:0;background:transparent;color:#3478ce;padding:8px 4px}.small{font-size:12px}.hero-action small{display:block;margin-top:9px;color:#718198}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:16px}.metric{padding:18px;min-height:126px}.metric .label{font-size:12px;color:#6a7d98}.metric .number{font-size:clamp(19px,2vw,26px);font-weight:750;letter-spacing:-.7px;margin:10px 0 6px;overflow-wrap:anywhere}.metric small{color:#718198;font-size:12px}.bar{height:7px;border-radius:10px;background:#e6edf7;overflow:hidden;margin:10px 0 7px}.bar>div{height:100%;border-radius:10px;background:linear-gradient(90deg,#3a8bef,#76c4fa)}.twocol{display:grid;grid-template-columns:1fr 1.1fr;gap:16px}.sectionhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:17px}.pill{border-radius:30px;background:#eaf1fc;color:#4775b6;padding:5px 11px;font-size:12px;font-weight:650}.issue{display:flex;align-items:flex-start;gap:12px;padding:14px 0;border-bottom:1px solid #e7edf5}.issue:last-child{border-bottom:0}.issue input{width:17px;height:17px;margin:4px 0 0;accent-color:#357fec}.issue strong{font-size:14px;display:block;margin-bottom:4px}.issue small{font-size:12px;color:#72829a;line-height:1.4}.issueicon{width:31px;height:31px;border-radius:11px;background:#fff3df;color:#ba7b13;display:grid;place-items:center;flex-shrink:0}.issueicon.info{background:#eaf3ff;color:#367cdb}.empty{padding:20px;border-radius:14px;background:#f2f6fc;color:#61728a;font-size:14px;line-height:1.5}.seg{display:flex;background:#edf3fa;padding:4px;border-radius:13px;gap:4px;margin:13px 0}.seg button{flex:1;border:0;border-radius:10px;padding:10px 4px;color:#526780;background:transparent;font-weight:600;font-size:13px}.seg button.active{background:white;color:#2470d4;box-shadow:0 2px 9px #263b5514}textarea{resize:vertical;width:100%;min-height:106px;border:1px solid #dce6f3;background:#f8fbff;border-radius:14px;padding:14px;color:#1d2e46;margin:10px 0;font-size:14px;line-height:1.5}textarea::placeholder{color:#8999ae}.assist-note{font-size:12px;color:#6a7d96;margin-bottom:12px;line-height:1.5}.response{margin-top:15px;background:#f0f5fd;border:1px solid #e0e9f6;border-radius:13px;padding:15px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65;font-size:13px;max-height:460px;overflow:auto}.hidden,[hidden]{display:none!important}.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.below{margin-top:16px}.detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.detail{border:1px solid #e2eaf4;background:#f8fbff;border-radius:14px;padding:14px}.detail strong{display:block;font-size:13px;margin-bottom:7px}.detail small{color:#687a92}.detail .value{font-size:15px;font-weight:700;overflow-wrap:anywhere}.detail p{margin:6px 0 0;color:#6a7c94;font-size:12px}.chart{width:100%;height:180px;background:#f7faff;border-radius:14px;border:1px solid #e6eef7;margin-top:12px}.progress{height:8px;background:#e1eaf7;border-radius:10px;overflow:hidden;margin:12px 0}.progress div{background:linear-gradient(90deg,#327bea,#65c2ff);height:100%;width:0;transition:width .3s}.row{display:flex;align-items:center;justify-content:space-between;gap:12px}.stack{display:grid;gap:12px}.technical{margin-top:16px}.technical summary{cursor:pointer;color:#386fc1;font-size:13px;font-weight:650}.technical pre{font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f7fd;border-radius:12px;padding:14px;max-height:360px;overflow:auto}.navsection{display:none}.navsection.active{display:block}.footer{margin-top:28px;color:#8796aa;font-size:12px}.privacy{border:1px solid #dfe8f5;background:#f4f8fd;border-radius:13px;padding:12px;color:#61748d;font-size:12px;line-height:1.6;margin-top:10px}.themebtn{border:1px solid #dbe5f3;background:#fff9;border-radius:20px;padding:8px 12px;color:inherit}.error{color:#b43e4d}.success{color:#1d9767}
+body.dark{background:#0e1625;color:#edf3fd}body.dark .panel{background:#192538;border-color:#2b3c54;box-shadow:none}body.dark .hero{background:linear-gradient(120deg,#1a2b45,#18263c)}body.dark .muted,body.dark .top p,body.dark .hero p,body.dark .metric small,body.dark .metric .label,body.dark .assist-note,body.dark .issue small,body.dark .detail p{color:#a9b9cf}body.dark .status,body.dark .themebtn{background:#24334b;border-color:#344761;color:#e4eefe}body.dark .seg,body.dark .bar,body.dark .progress{background:#263750}body.dark .seg button{color:#c3d2e5}body.dark .seg button.active{background:#3b587c;color:white}body.dark textarea,body.dark .response,body.dark .detail,body.dark .privacy,body.dark .empty,body.dark .technical pre,body.dark .secondary{background:#202f45;color:#e7f0fd;border-color:#334862}body.dark .issue{border-color:#304057}body.dark .chart{background:#1c2b40;border-color:#344761}body.dark .pill{background:#2a4365;color:#a9ceff}
+@media(max-width:1100px){.app{grid-template-columns:190px minmax(0,1fr)}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.twocol{grid-template-columns:1fr}.hero{grid-template-columns:1fr}.hero-action{text-align:left}}@media(max-width:700px){.app{display:block}aside{padding:12px 14px;gap:6px}.brand{padding:4px}.nav{display:flex;overflow:auto}.nav button{white-space:nowrap;padding:10px}.nav button span{display:none}.side-bottom{display:none}main{padding:20px 12px 40px}.panel{padding:17px;border-radius:18px}.top{align-items:center}.status{font-size:11px;padding:7px}.hero{padding:19px}.grid{gap:9px}.metric{padding:13px;min-height:112px}.metric .number{font-size:19px}.detail-grid{grid-template-columns:1fr}}
+.explorer-controls{display:flex;flex-wrap:wrap;align-items:end;gap:14px;margin:22px 0}.explorer-controls label{display:grid;gap:6px;font-size:13px}.explorer-controls select{padding:11px 14px;border:1px solid #cbd8e9;border-radius:12px;background:#f7faff;color:#18243b;max-width:100%}.file-results{display:grid;gap:10px;margin-top:16px}.file-entry{display:flex;gap:12px;align-items:center;justify-content:space-between;border:1px solid #dbe4ef;border-radius:14px;padding:13px;min-width:0}.file-info{min-width:0;overflow-wrap:anywhere}.file-info small{display:block;color:#708099;margin-top:4px}.file-entry button{flex-shrink:0}.file-entry .secondary{color:#b03947}body.dark .explorer-controls select{background:#24334b;color:#eef4ff;border-color:#455772}body.dark .file-entry{border-color:#344761}@media(max-width:700px){.file-entry{align-items:start;flex-direction:column}}.recycle-review{width:100%;margin-top:12px;padding:14px;border:1px solid #e5a0a0;border-radius:12px;background:rgba(230,80,80,.05);display:flex;flex-direction:column;gap:10px}.recycle-review p{margin:0}.recycle-review label{display:flex;align-items:center;gap:8px}.recycle-review div:last-child{display:flex;gap:8px;flex-wrap:wrap}
+
+/* V1.13: fixed left navigation; independently scrolling work area */
+html,body{height:100%;overflow:hidden}.app{height:100dvh;min-height:0;display:grid;grid-template-columns:230px minmax(0,1fr)}
+aside{height:100dvh;position:sticky;top:0;z-index:20;display:flex;flex-direction:column;align-items:stretch;gap:20px;padding:24px 12px;background:linear-gradient(155deg,#1c293c,#101c2d);overflow-y:auto;box-shadow:none}
+.brand{padding:8px}.brand strong{font-size:18px}.brand small{display:block}.brand-icon{width:42px;height:42px;border-radius:14px;font-size:25px}
+.nav{display:grid;align-items:stretch;gap:5px;overflow:visible;flex:0 0 auto}.nav button{width:100%;white-space:normal;text-align:left;font-size:13px;padding:12px;gap:12px}.nav button span{font-size:18px;width:22px}
+.side-bottom{display:block;margin-top:auto}main{height:100dvh;min-height:0;overflow-y:auto;overscroll-behavior:contain;max-width:none;padding:26px clamp(16px,3vw,44px) 60px;margin:0;width:100%;scrollbar-gutter:stable}
+.device-card .repair-box{margin-top:14px;padding:15px;border:1px solid #d7e4f5;border-radius:13px;background:#f2f7ff}.repair-box ol{padding-left:22px;line-height:1.7;font-size:13px}.repair-box p{line-height:1.5}.repair-warning{border-left:3px solid #d89c3a;padding:8px 12px;background:#fff8ea;border-radius:6px;font-size:12px}.dark .repair-box{background:#202f43;border-color:#425772}.dark .repair-warning{background:#3d3328}
+.verdict{margin-bottom:16px;border-left:5px solid #79a8e6}.verdict.watch{border-left-color:#e7a44e}.verdict.fix{border-left-color:#d76565}.verdict h2{font-size:25px;margin:4px 0}.verdict p{margin:8px 0;color:#60728c}.verdict .next{font-size:14px;line-height:1.6}.hero{padding:19px 24px}.hero h2{font-size:23px}.hero p{font-size:13px}.hero-action .primary{white-space:nowrap}
+.symptom-label{display:block;margin:10px 0 3px;font-size:13px;font-weight:650}.symptom-input{min-height:72px}.assistant-intro{margin-bottom:16px}.assistant-intro .panel{border:1px solid #dbe8fa}.assistant-intro h2{font-size:23px;margin-bottom:8px}.assistant-intro p{font-size:13px;color:#65768f}.assistant-intro .primary{margin-top:8px}.tools{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.muted-note{font-size:12px;color:#687b95;line-height:1.6}
+@media(max-width:850px){.app{grid-template-columns:76px minmax(0,1fr)}aside{padding:12px 7px}.brand{justify-content:center}.brand>div:last-child{display:none}.nav button{font-size:0;justify-content:center;padding:12px 4px}.nav button span{font-size:22px;width:auto}.side-bottom{font-size:0}main{padding:18px 12px 40px}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.twocol{grid-template-columns:1fr}.hero{grid-template-columns:1fr}.hero-action{text-align:left}}
+@media(max-width:520px){.app{grid-template-columns:62px minmax(0,1fr)}.panel{padding:14px}.grid{gap:8px}.metric{padding:12px;min-height:110px}.metric .number{font-size:19px}.detail-grid{grid-template-columns:1fr}.top{gap:6px}.status{font-size:10px;padding:7px}}
+.manual-scan{margin:14px 0 8px;justify-content:space-between;align-items:center;border-top:1px solid #dbe6f5;padding-top:13px}.bottom-ask .primary{font-size:16px;padding:13px 22px}.symptom-input{min-height:165px;line-height:1.6}.bottom-ask{justify-content:space-between;align-items:center;margin-top:12px}.bottom-ask .secondary{font-weight:700}.provider-dialog{border:1px solid #d9e4f4;border-radius:22px;max-width:470px;width:calc(100% - 30px);padding:25px;background:#f8fbff;color:#15253e;box-shadow:0 30px 90px #14284455}.provider-dialog::backdrop{background:#0d203c88;backdrop-filter:blur(5px)}.provider-choices{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:18px 0}.provider-choices button{border:1px solid #cddbef;border-radius:12px;background:white;color:#223c60;padding:12px 7px;cursor:pointer}.provider-choices button.selected{border-color:#2e7ded;background:#e7f1ff;color:#1761c5;font-weight:700}.modal-actions{justify-content:flex-end}body.dark .provider-dialog{background:#1a283c;color:#f3f6ff}body.dark .provider-choices button{background:#24354b;color:#fff}
+.hidden-console{display:none!important}.assist-status{font-size:13px;white-space:pre-wrap;color:#496382;background:#edf4ff;border:1px solid #d9e5f7;border-radius:12px;padding:12px 15px;margin-top:12px;line-height:1.5}.dark .assist-status{background:#22344c;color:#d3e4fa;border-color:#3c536d}.symptom-input{min-height:190px;width:100%;resize:vertical}.provider-dialog .provider-choices button.selected{border-color:#3187f4;background:#e5f1ff;color:#1757b4}
+
+.watch-banner{display:flex;align-items:center;gap:15px;border-radius:15px;padding:16px 18px;margin-top:14px;border:2px solid #b7c9e4;background:#eaf2fc;color:#244566}.watch-banner>span{font-size:27px;font-weight:900}.watch-banner strong{display:block;font-size:20px;letter-spacing:.15px}.watch-banner small{display:block;margin-top:4px;font-size:12px}.watch-banner.running{background:#e8f2ff;border-color:#367fea;color:#174a91}.watch-banner.complete{background:#087d49;border-color:#0b9d5c;color:white;box-shadow:0 5px 16px #07854d38}.watch-banner.interrupted{background:#a53e2b;border-color:#c04b33;color:white}.watch-banner.idle{background:#dcecff;border-color:#70a7f0;color:#174a91}.watch-banner.blocked{background:#fff0c8;border-color:#e6a22a;color:#704600}body.dark .watch-banner.blocked{background:#654718;border-color:#e6a22a;color:#fff2cf}.watch-banner.complete strong,.watch-banner.interrupted strong{font-weight:850}body.dark .watch-banner.running{background:#173b69;color:#e4f2ff}body.dark .watch-banner.complete{background:#075c39;color:#fff}body.dark .watch-banner.interrupted{background:#793122;color:#fff}
+
+.health-availability{margin:12px 0 16px;padding:14px 17px;border-radius:13px;border:2px solid #70a7f0;background:#dcecff;color:#174a91;display:flex;flex-direction:column;gap:4px}.health-availability strong{font-size:17px;font-weight:900;letter-spacing:.2px}.health-availability small{font-size:12px}.health-availability.blocked{background:#fff0c8;border-color:#e6a22a;color:#704600}.health-availability.running{background:#e8f2ff;border-color:#367fea;color:#174a91}.health-availability.complete{background:#087d49;border-color:#0b9d5c;color:white}.health-availability.complete small{color:#ecfff5}body.dark .health-availability.blocked{background:#654718;color:#fff2cf}body.dark .health-availability.complete{background:#075c39;color:#fff}
+
+/* V1.16.1: context-specific action affordances; no flashing while diagnostics run. */
+@keyframes pcActionGlow{0%,100%{box-shadow:0 0 0 2px #3388f544,0 0 9px #3188ef33}50%{box-shadow:0 0 0 4px #3388f566,0 0 22px #3188ef99}}
+#open-assistant.next-action,#run-check.next-action{animation:pcActionGlow 2s ease-in-out infinite;border:2px solid #3188ef!important;background:#287df0!important;color:#fff!important;font-weight:800}
+#open-assistant.next-action{background:#086fca!important}
+#open-assistant:disabled,#run-check:disabled{animation:none!important;box-shadow:none!important;opacity:.55}
+@media(prefers-reduced-motion:reduce){#open-assistant.next-action,#run-check.next-action{animation:none;box-shadow:0 0 0 3px #3188ef77}}
+#pc-question{width:100%;padding:15px 18px;border:2px solid #438cf4;border-radius:13px;background:#fff;color:#132844;font-size:15px;box-shadow:0 0 0 3px #3489fa15;caret-color:#0878f4}#pc-question:focus{outline:3px solid #9ac7ff;outline-offset:1px}.pc-question-wrap{margin:10px 0 8px}body.dark #pc-question{background:#202f45;color:#edf3fd}
+</style><style>.tool-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(225px,1fr));gap:12px;margin:18px 0}.tool-card{padding:16px;border:1px solid #dbe6f5;border-radius:16px;background:rgba(235,243,255,.38)}.tool-card strong{display:block;font-size:15px}.tool-card p{min-height:45px;line-height:1.5}.tool-card button{margin-top:6px}body.dark .tool-card{background:#203047;border-color:#42546c}</style><style>
+.pc-confirm{border:1px solid #d6e2f3;border-radius:18px;max-width:520px;width:calc(100% - 28px);padding:24px;background:#f8fbff;color:#172942;box-shadow:0 24px 80px #14284455}
+.pc-confirm::backdrop{background:#0d203c99;backdrop-filter:blur(4px)}
+.pc-confirm h2{margin:0 0 10px}.pc-confirm p{white-space:pre-line;line-height:1.55}.pc-confirm .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:22px}
+body.dark .pc-confirm{background:#1a283c;color:#f3f6ff}
+
+#run-progress.scan-complete{background:#087d49!important;border:2px solid #0b9d5c!important;color:#fff!important;box-shadow:0 6px 22px #07854d38}
+#run-progress.scan-complete #run-stage{font-size:21px;font-weight:900;color:#fff!important}
+#run-progress.scan-complete #run-stage:before{content:'✓  ';font-size:26px}
+#run-progress.scan-complete #run-progress-text{color:#ecfff5!important}
+#run-progress.scan-complete .progress{background:#ffffff40}
+#run-progress.scan-complete #run-bar{background:#b3ffd1!important}
+#run-progress.scan-complete #stop-check{display:none}
+#run-progress.scan-interrupted{background:#9b382e!important;color:#fff!important}
+#run-progress.scan-interrupted #run-stage,#run-progress.scan-interrupted #run-progress-text{color:#fff!important}
+.disk-health-results{margin-top:14px}.disk-health-results .detail{margin:8px 0}
+</style></head><body><div class="app"><aside><div class="brand"><div class="brand-icon">⌁</div><div><strong>PC Medic AI</strong><small>Know your computer</small></div></div><nav class="nav" aria-label="Main navigation"><button data-tab="home" class="active"><span>⌂</span> Overview</button><button data-tab="performance"><span>⌁</span> Performance</button><button data-tab="storage"><span>▣</span> Storage</button><button data-tab="explorer"><span>⌕</span> Storage Explorer</button><button data-tab="devices"><span>⌘</span> Devices &amp; Drivers</button><button data-tab="windows-tools"><span>▦</span> Windows Tools</button><button data-tab="advanced"><span>⚠</span> Advanced</button><button data-tab="findings"><span>◈</span> Findings</button><button data-tab="system"><span>⚙</span> System Details</button></nav><div class="side-bottom"><div>PC Medic AI 1.15</div><div style="margin-top:9px"><span class="dot"></span>Local diagnostic server</div></div></aside><main><header class="top"><div><h1>PC Medic AI</h1><p>One health check. Clear answers. Your computer, understood.</p></div><div class="actions"><span class="status" id="status">● Loading report</span><button id="theme" class="themebtn" aria-label="Toggle light and dark theme">◐</button></div></header>
+<section id="home" class="navsection active"><div class="assistant-intro" id="assistant-intro"><section class="panel" id="home-console"><div class="sectionhead"><h2>✧ PC Medic AI — Your Diagnostic Assistant</h2><span class="pill">AI-led · Private by default</span></div><p>Tell PC Medic what is wrong, or press one button to scan your computer. PC Medic reviews the findings, explains the verdict and prepares the next steps. You choose when to contact Claude or OpenAI.</p><div id="health-availability" class="health-availability ready" role="status" aria-live="polite"><strong id="health-availability-title">READY FOR HEALTH CHECK</strong><small id="health-availability-detail">No Performance Watch is running. You can start a health check.</small></div><label class="symptom-label" for="pc-question">Ask PC Medic a question or describe a problem</label><div class="pc-question-wrap"><input id="pc-question" type="text" maxlength="500" autocomplete="off" placeholder="Type here: What graphics card do I have? Can I add RAM? My computer froze..." aria-label="Type your question to PC Medic"></div><label class="symptom-label" for="symptom">PC Medic's assessment <span class="muted">— Investigation results and explanations appear here</span></label><textarea class="symptom-input" id="symptom" maxlength="1500" placeholder="PC Medic will show its answer and findings here. Type your question in the field above."></textarea><div class="tools bottom-ask"><span class="muted small">Type above and press Enter or Ask PC Medic. Follow-up answers work here too.</span><button class="primary" id="open-assistant" type="button">✧ Ask PC Medic</button></div><div class="tools manual-scan"><span class="muted small">Or run the full diagnostic manually</span><button class="secondary" id="run-check">▶ Run AI-guided Health Check</button></div><div id="assistant-status" class="assist-status" role="status" aria-live="polite">Scan results and AI answers appear in the assessment field above.</div><div class="muted-note">Diagnostic scans run locally. Cloud AI is optional and always requires approval.</div></section></div><div id="verdict" class="hidden" aria-hidden="true"><h2 id="verdict-title"></h2><p id="verdict-desc"></p><div id="verdict-next"></div></div><button class="hidden" id="run-again" type="button">Run another check</button><div class="panel hidden" id="run-progress" style="margin-bottom:16px"><div class="row"><strong id="run-stage">Preparing...</strong><button class="secondary" id="stop-check">Stop</button></div><div class="progress"><div id="run-bar"></div></div><div class="muted small" id="run-progress-text">Waiting to begin</div></div><div class="grid" id="metrics"></div><div class="grid" id="hardware-extras"><div class="panel metric"><div class="label">Drive health</div><div class="number">Not verified</div><small>SMART, SSD wear and temperature require supported device telemetry. Free space is not drive health.</small></div><div class="panel metric"><div class="label">Thermals &amp; fans</div><div class="number">Unavailable</div><small>CPU/GPU temperatures, fan speeds and throttling are not reliably exposed by this Windows collector.</small></div></div><div class="twocol"><section class="panel"><div class="sectionhead"><h2>What PC Medic found</h2><span class="pill" id="issue-count">No findings yet</span></div><p class="muted small"><strong>Include in AI investigation</strong> — checked findings are added to your AI question. Uncheck to leave one out. This does not fix, delete, or dismiss any problem.</p><div id="issues" class="stack"><div class="empty">Run a health check to review your computer.</div></div><button class="subtle" id="show-all-findings">View all findings →</button></section></div><div class="grid below" id="quick-details" style="grid-template-columns:repeat(3,minmax(0,1fr))"></div></section>
+
+<section id="performance" class="navsection"><div class="panel"><div class="sectionhead"><h2>Performance</h2><span class="pill" id="perf-count">No samples</span></div><p class="muted small">Performance Watch is a separate diagnostic. It cannot run during the AI-guided Health Check; wait for the current scan to finish.</p><div class="grid below" id="perf-metrics"></div><div id="watch-banner" class="watch-banner idle" role="status" aria-live="polite"><span id="watch-banner-icon">◌</span><div><strong id="watch-banner-title">Ready to monitor</strong><small id="watch-banner-detail">Select a duration and start a watch, or run the full health check.</small></div></div><svg id="perf-chart" class="chart" viewBox="0 0 700 180" preserveAspectRatio="none" role="img" aria-label="CPU, memory and disk utilization trends"></svg><div class="muted small">Blue: CPU · Green: memory used · Orange: disk busy. The same graph displays health-check samples or the active watch.</div><div class="actions below"><button id="export" class="secondary" disabled>Export local report (JSON)</button><label for="watch-duration" class="muted small">Watch duration</label><select id="watch-duration" aria-label="Watch duration"><option value="1">1 minute</option><option value="3" selected>3 minutes</option><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="30">30 minutes</option></select><button id="watch-start" class="secondary">Start watch</button><button id="watch-stop" class="secondary" disabled>Stop &amp; Analyze</button></div><div id="watch-status" class="assist-note" role="status">Spike monitoring is off. Keep this browser tab open while watching.</div><div id="watch-summary" class="assist-note">No monitoring session completed yet.</div><div class="actions below"><button id="watch-ai" class="primary" disabled>Ask PC Medic to Analyze</button><button id="watch-export" class="secondary" disabled>Export watch report (JSON)</button></div><div id="watch-events" class="stack below"></div><div class="panel below" style="box-shadow:none"><div class="sectionhead"><h3>Scan history &amp; trends</h3><button id="history-refresh" class="secondary">Refresh</button></div><p class="muted small">Saved locally: timestamps, utilization percentages, and finding counts only. Latest 100 completed scans; no raw logs or process names saved.</p><div id="history-results" class="stack below">No saved scans yet.</div><div id="history-compare" class="assist-note"></div></div><details class="technical"><summary>Process memory measurements</summary><pre id="process-output">No process measurements yet.</pre></details></div></section>
+<section id="storage" class="navsection"><div class="panel"><h2>Storage</h2><p class="muted small">Optimize Drives uses Windows to choose SSD TRIM or HDD defragmentation. PC Medic does not defragment automatically.</p><button id="open-optimize" class="secondary" type="button">Open Windows Optimize Drives</button><button id="disk-health-scan" class="primary" type="button">Scan for Disk Health</button><div id="disk-health-results" class="disk-health-results" role="status" aria-live="polite">Run a read-only disk health scan to inspect available Windows reliability counters.</div><div id="disk-forecast" class="assist-note">Disk-space forecast needs historical scans.</div><div id="optimize-status" class="muted small below"></div><p class="muted small">Free space and total capacity for each detected volume.</p><div class="detail-grid below" id="storage-details"></div></div></section>
+<section id="explorer" class="navsection"><div class="panel"><div class="sectionhead"><h2>Storage Explorer</h2><span class="pill">Local · On demand</span></div><p class="muted">Find large files across your Windows user profile, or choose all local drives. Protected system and application folders are excluded; deletion is limited to approved personal folders.</p><div class="explorer-controls"><label>Search area<select id="file-scope"><option value="profile" selected>My user profile (recommended)</option><option value="personal">Common personal folders only</option><option value="drives">All local drives (slower)</option></select></label><label>File type<select id="file-category"><option value="all">All file types</option><option value="images">Images</option><option value="videos">Videos</option><option value="documents">Documents · PDF · TXT · JSON</option><option value="email">Local email archives</option><option value="archives">Archives</option><option value="installers">Installers</option></select></label><label>Minimum size<select id="file-minimum"><option value="10">10 MB</option><option value="100" selected>100 MB</option><option value="500">500 MB</option><option value="1024">1 GB</option></select></label><button id="file-search" class="primary">Find Large Files</button></div><div class="assist-note">Files are not uploaded to AI. Email search finds local PST/OST/EML/MSG archives, not messages or attachments inside mail accounts. One-click removal moves eligible personal files to Windows Recycle Bin; no permanent deletion.</div><div id="file-status" class="response" role="status" aria-live="polite">Choose a file type and click Find Large Files.</div><div id="file-results" class="file-results"></div></div></section>
+<section id="devices" class="navsection"><div class="panel"><div class="sectionhead"><h2>Devices &amp; Drivers</h2><span class="pill">Read-only · Local</span></div><p class="muted small">Discover connected and installed Windows devices, driver versions and devices reporting errors. Use the guided Driver Repair Assistant to review trusted update paths. PC Medic does not automatically modify drivers.</p><div class="actions below"><button id="device-scan" class="primary" type="button">Scan Devices</button><input id="device-search" type="search" placeholder="Search devices, e.g. Bluetooth" aria-label="Search devices" style="min-width:210px;flex:1;max-width:350px"><select id="device-category" aria-label="Device category"><option value="all">All categories</option></select><select id="device-filter" aria-label="Device status"><option value="attention">Needs attention</option><option value="connected">Working</option><option value="disconnected">Disconnected</option><option value="unknown">Unknown</option><option value="all">All statuses</option></select></div><div id="device-status" class="response">Click Scan Devices to check your Windows hardware. Results stay on this PC. Device inventory is separate from the main health check.</div><div id="device-results" class="stack below"></div><details class="technical"><summary>How to update a driver safely</summary><p class="muted small">Use Windows Settings → Windows Update → Advanced options → Optional updates, or Device Manager. For a specific device, obtain the driver from your PC or device manufacturer's official support site. Create a restore point before significant driver changes. No driver changes are made by PC Medic.</p></details></div></section>
+<section id="advanced" class="navsection"><div class="panel"><div class="sectionhead"><h2>Advanced · Technician Tools</h2><span class="pill">Confirmation required</span></div><p class="muted small">Advanced Windows utilities can destabilize Windows. PC Medic does not edit registry values, change policies, run Driver Verifier, or record traces automatically.</p><div id="advanced-edition" class="assist-note">Checking Windows edition…</div><label style="display:block;margin:16px 0"><input id="advanced-tech" type="checkbox"> I'm a technician and understand the risks</label><div class="tool-grid"><div class="tool-card"><strong>Registry Editor</strong><p>Export the specific key in Registry Editor before changing it, or create a Windows restore point first.</p><button id="advanced-regedit" class="secondary">Open Registry Editor</button></div><div class="tool-card"><strong>Driver Verifier · Technician only</strong><p>Can trigger BSODs and boot loops. Recovery planning is essential.</p><button id="advanced-verifier" class="secondary" disabled>Open Driver Verifier</button></div><div class="tool-card"><strong>Windows Performance Recorder · Technician only</strong><p>Open help for WPR. Traces require Windows Performance Analyzer for detailed analysis.</p><button id="advanced-wpr" class="secondary" disabled>WPR help</button></div><div class="tool-card" id="advanced-policy-card" hidden><strong>Local Group Policy</strong><p>Available only on supported Windows editions.</p><button id="advanced-gpedit" class="secondary">Open Group Policy</button></div><div class="tool-card" id="advanced-security-card" hidden><strong>Local Security Policy</strong><p>Available only on supported Windows editions.</p><button id="advanced-secpol" class="secondary">Open Security Policy</button></div></div><h3>Read-only registry lookup</h3><p class="muted small">Look up an explicitly entered registry value. Results remain local and are not automatically sent to an AI provider. Avoid looking up credentials or secrets.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><select id="advanced-root"><option value="HKLM">HKLM</option><option value="HKCU">HKCU</option></select><input id="advanced-path" placeholder="SOFTWARE\Microsoft\Windows NT\CurrentVersion" style="flex:2;min-width:230px"><input id="advanced-value" placeholder="ProductName" style="flex:1;min-width:130px"><button id="advanced-lookup" class="secondary">Look up value</button></div><div id="advanced-status" class="response" role="status" aria-live="polite">No advanced action requested.</div></div></section>
+<section id="windows-tools" class="navsection"><div class="panel"><div class="sectionhead"><h2>Windows Tools &amp; Guided Actions</h2><span class="pill">User-approved · Local</span></div><p class="muted small">PC Medic can guide you to the right Windows utility. Every launch requires your confirmation. Opening a tool does not change settings, delete files, repair drivers, or optimize a disk.</p><div id="windows-recommendation" class="assist-note">Run a health check to see suggested next steps.</div><div class="tool-grid" id="windows-tool-list"></div><div id="ai-tool-suggestions" class="assist-note" hidden aria-live="polite"></div><div id="windows-tool-status" class="response" role="status" aria-live="polite">Select a tool to open it in Windows.</div></div></section>
+<section id="findings" class="navsection"><div class="panel"><h2>Diagnostic findings</h2><p class="muted small">Observations are not confirmed causes. Checkboxes mean “include in AI investigation,” not “fixed.” Review evidence before making changes.</p><div id="all-findings" class="stack below"></div></div></section>
+<section id="system" class="navsection"><div class="panel"><h2>System details</h2><p class="muted small">Information collected from your local Windows system.</p><div class="detail-grid below" id="system-details"></div><details class="technical"><summary>Collector status</summary><pre id="collector-output">Waiting for report.</pre></details></div></section>
+<footer class="footer">PC Medic AI 1.15 · Read-only Windows diagnostics · Cloud sharing only after explicit approval · Never share raw exported reports without reviewing them.</footer></main></div>
+<dialog id="pc-confirm" class="pc-confirm" aria-labelledby="pc-confirm-title"><h2 id="pc-confirm-title">Open Windows tool?</h2><p id="pc-confirm-message"></p><div class="modal-actions"><button id="pc-confirm-cancel" type="button" class="secondary">Cancel</button><button id="pc-confirm-ok" type="button" class="primary">Continue</button></div></dialog><dialog id="provider-dialog" class="provider-dialog" aria-labelledby="provider-dialog-title"><h2 id="provider-dialog-title">Ask PC Medic</h2><p class="muted small">Choose how PC Medic should analyze your assessment. Offline stays on this computer. Claude and OpenAI require consent before sharing.</p><div class="provider-choices"><button type="button" data-modal-provider="offline" class="selected">Offline · Private</button><button type="button" data-modal-provider="claude">Claude</button><button type="button" data-modal-provider="openai">OpenAI</button></div><div class="tools modal-actions"><button type="button" id="provider-cancel" class="secondary">Cancel</button><button type="button" id="provider-continue" class="primary">Investigate</button></div></dialog><template id="console-template"><div class="seg" role="group" aria-label="Diagnostic engine"><button type="button" data-provider="offline" class="active">Offline</button><button type="button" data-provider="claude">Claude</button><button type="button" data-provider="openai">OpenAI</button></div><label class="muted small" for="question">What should PC Medic investigate?</label><textarea id="question" maxlength="500" placeholder="Investigate my selected findings and explain what I should do next."></textarea><div class="assist-note" id="evidence-note">Automatically uses your latest available scan and performance results.</div><button id="ai-ask" class="primary" type="button">✧ &nbsp; Investigate</button><div id="ai-response" class="response" role="status" aria-live="polite">Your latest findings will be selected automatically. Choose an engine and press Investigate when ready.</div><div id="storage-action" class="actions below hidden"><button type="button" id="discover-files" class="secondary">⌕ Find large files on my PC</button></div><details id="ai-detail" class="technical" hidden><summary>Show detailed analysis</summary><pre id="ai-full" class="response" style="white-space:pre-wrap"></pre></details><details class="technical"><summary>Privacy &amp; sharing details</summary><div class="privacy">Offline requests remain on this PC. Claude and OpenAI receive your typed question verbatim plus a reduced diagnostic summary and any available numeric performance measurements, only after confirmation. Process names, PIDs, raw event messages, usernames, device names and IP addresses are excluded. No repairs are made.</div><button id="preview" class="secondary below" type="button">Preview sanitized evidence</button><pre id="share-preview" hidden></pre></details></template>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);const html=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=String(text);return e};
+let token='',demo=false,report=null,analysis=null,provider='offline',selected=new Set(),issues=[],processSamples=[],perfSamples=[],running=false,stopRequested=false,reportReady=false;
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));const finite=v=>typeof v==='number'&&Number.isFinite(v);const fmt=(v,n=1)=>finite(v)?v.toFixed(n):'—';const arr=x=>Array.isArray(x)?x:x&&typeof x==='object'?[x]:[];
+const tabButtons=[...document.querySelectorAll('[data-tab]')];
+function switchTab(tab){document.querySelectorAll('.navsection').forEach(e=>e.classList.toggle('active',e.id===tab));tabButtons.forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));document.querySelector('main').scrollTo({top:0,behavior:'smooth'});}
+tabButtons.forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
+$('open-assistant').onclick=()=>startGuidedDiagnosis();$('pc-question').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();startGuidedDiagnosis();}});$('run-again').onclick=()=>healthCheck();$('show-all-findings').onclick=()=>switchTab('findings');
+const consoleUI=$('console-template').content.firstElementChild;const wrapper=html('div');wrapper.id='console-ui';wrapper.append(...[...$('console-template').content.childNodes].map(x=>x.cloneNode(true)));$('home-console').append(wrapper);wrapper.classList.add('hidden-console');
+let guidedPending=null;
+function hardwareQuestion(text){return /\b(ram|memory|upgrade|add more|install more|storage|ssd|hard drive|video memory|vram)\b/i.test(text)&&/\b(can i|could i|upgrade|add|install|replace|buy|purchase|more memory|more ram|capacity)\b/i.test(text)}
+function hardwareKind(text){if(/\b(vram|video memory|graphics memory|gpu memory)\b/i.test(text))return 'video';if(/\b(ssd|hard drive|disk space|storage space|storage|drive space)\b/i.test(text))return 'storage';if(/\b(ram|memory module|memory stick|ddr|dimm)\b/i.test(text))return 'ram';return 'ambiguous'}
+async function answerHardwareQuestion(text,kind){
+ const intro='Your question: '+text+'\n\n';
+ if(kind==='video'){$('symptom').value=intro+'Graphics memory (VRAM) is usually built into the graphics card or shared with system RAM. It generally cannot be upgraded separately. PC Medic can check your graphics adapter, but upgrade options depend on the exact PC model and GPU. No performance watch is needed.';showResearchOffer('graphics',text,'Graphics adapter and OEM model require verification');return;}
+ if(kind==='storage'){$('symptom').value=intro+'You mean storage space for files and applications, rather than RAM. Storage upgrades depend on the exact PC model, free drive bays and supported SSD interfaces. A performance watch is not needed. Check Storage Explorer for available capacity, then verify the model’s drive compatibility before purchasing.';showResearchOffer('SSD/storage',text,'Model must be verified against OEM service manual');return;}
+ $('assistant-status').textContent='Checking Windows manufacturer, model, installed RAM modules and reported slots. No performance watch is needed.';
+ $('symptom').value=intro+'PC Medic is reading local hardware specifications…';
+ try{const result=await getJSON('/api/hardware-upgrade');const d=result.hardware||{};const modules=Array.isArray(d.Modules)?d.Modules:d.Modules?[d.Modules]:[];const total=Number(d.TotalPhysicalMemory);const lines=[`Computer: ${d.Manufacturer||'Unknown'} ${d.Model||'Unknown'}`,Number.isFinite(total)&&total>0?`Installed RAM: ${(total/1073741824).toFixed(1)} GB`:'Installed RAM: unavailable'];
+ modules.forEach((m,i)=>lines.push(`Module ${i+1}: ${m.Capacity?(Number(m.Capacity)/1073741824).toFixed(1)+' GB':'unknown capacity'} · ${m.Speed||m.ConfiguredClockSpeed||'?'} MT/s · Part ${String(m.PartNumber||'unknown').trim()} · ${m.DeviceLocator||'slot unknown'}`));
+ if(!d.available)lines.push('Windows inventory unavailable: '+(d.reason||'unknown reason'));
+ lines.push('Upgrade not yet confirmed. Some RAM is soldered. The manufacturer’s exact specifications must verify maximum capacity, socket count, DDR generation, form factor and supported speeds before ordering.');
+ lines.push('A current compatible part number and CDW/Amazon purchasing link require verified OEM specifications and live product listings; PC Medic offline cannot verify them.');
+ $('symptom').value=intro+lines.join('\n\n');$('assistant-status').textContent='Hardware inventory complete · Offline · Read-only. No performance scan was started.';showResearchOffer('RAM',text,lines.slice(0,6).join('; '));
+ }catch(e){$('symptom').value=intro+'Hardware lookup unavailable: '+e.message+'\nPC Medic will not guess at hardware details. You can also open Windows System Information.';$('assistant-status').textContent='Hardware inventory could not be completed.';}
+}
+let pendingClarification=null;
+let pendingResearch=null;
+let conversationContext={lastQuestion:'',lastTopic:'',lastHardware:null};
+function showResearchOffer(kind, question, details){
+ pendingResearch={kind,question,details};
+ conversationContext.lastQuestion=question;conversationContext.lastTopic=kind;
+ document.getElementById('research-choices')?.remove();
+ const row=document.createElement('div');row.id='research-choices';row.className='actions below';
+ const label=document.createElement('strong');label.textContent='Next step: search online for compatible '+kind+' options?';row.append(label);
+ const yes=document.createElement('button');yes.type='button';yes.className='primary';yes.textContent='Search online for parts';
+ yes.onclick=()=>prepareUpgradeResearch();row.append(yes);
+ const no=document.createElement('button');no.type='button';no.className='secondary';no.textContent='Stay offline';no.onclick=()=>{row.remove();pendingResearch=null;$('assistant-status').textContent='Staying offline. No information was shared.'};row.append(no);
+ $('assistant-status').after(row);
+}
+async function prepareUpgradeResearch(){
+ if(!pendingResearch)return;
+ const r=pendingResearch;
+ const ok=await pcConfirm('Search online for replacement parts?', 'PC Medic will send the computer manufacturer, model and requested part type to a public web search. Search terms may be logged by the search provider. No serial number, IP address, username, event logs or full scan will be shared. Search results are candidates, not confirmed compatible parts.', 'Search online');
+ if(!ok){$('assistant-status').textContent='Online research cancelled. Nothing was sent.';return;}
+ $('assistant-status').textContent='Online research running · Identifying hardware and searching sources (may take 10–20 seconds)...';
+ $('symptom').value='Online research approved. Identifying this computer and looking for '+r.kind+' candidates…\n\nPlease wait. No product is considered compatible until its OEM specifications are verified.';
+ try{
+  const result=await getJSON('/api/hardware-upgrade');
+  const hw=result.hardware||{};
+  if(!hw.available)throw Error('Windows hardware identification unavailable');
+  const make=hw.Manufacturer||'',model=hw.Model||'';
+  $('assistant-status').textContent='Searching manufacturer and retailer sources for '+make+' '+model+'…';
+  const found=await request('/api/parts-research',{approved:true,kind:r.kind,manufacturer:make,model:model});
+  const lines=[`Research: ${r.kind} for ${make} ${model}`,'Search results are candidates, NOT confirmed compatible replacements.',`Original question: ${r.question}`];
+  if(found.sources.length)lines.push('Public search returned '+found.sources.length+' candidate sources. Open the source links below to verify specifications.');
+  else lines.push('No live source listings were retrieved. Use the retailer search links below.');
+  lines.push('Before purchasing: verify the exact OEM model/MTM, manufacturer part number, connector and power ratings for chargers, or RAM/storage form factor and supported limits for upgrades.');
+  $('symptom').value=lines.join('\n\n');
+  document.getElementById('research-results')?.remove();
+  const wrap=document.createElement('div');wrap.id='research-results';wrap.className='assist-status';
+  const heading=document.createElement('strong');heading.textContent='Online sources · Verify before purchasing';wrap.append(heading);
+  const items=[...found.sources,...found.search_links];
+  for(const item of items){const line=document.createElement('div');line.style.marginTop='9px';const link=document.createElement('a');link.href=item.url;link.target='_blank';link.rel='noopener noreferrer';link.textContent=item.title;line.append(link);if(item.snippet){const desc=document.createElement('small');desc.textContent=' — '+item.snippet;line.append(desc)}wrap.append(line)}
+  const ai=document.createElement('button');ai.type='button';ai.className='primary';ai.style.marginTop='14px';ai.textContent='Ask Claude or OpenAI to review these results';
+  ai.onclick=()=>{
+   const shortlist=found.sources.slice(0,3).map(x=>x.title+' '+x.url).join(' | ');
+   $('question').value=(`Assess possible ${r.kind} replacements for ${make} ${model}. Original request: ${r.question}. Candidate sources: ${shortlist}. Treat listings as unverified. Explain exact OEM compatibility checks; do not invent part numbers or prices.`).slice(0,500);
+   document.querySelectorAll('[data-modal-provider]').forEach(b=>b.classList.toggle('selected',b.dataset.modalProvider==='claude'));
+   $('provider-dialog-title').textContent='Review web findings with AI';
+   $('provider-dialog').showModal();
+  };wrap.append(ai);
+  $('symptom').after(wrap);
+  $('assistant-status').textContent='Online search complete · Candidate sources displayed · AI review optional.';
+ }catch(e){$('assistant-status').textContent='Research could not complete: '+e.message+'. No parts were marked compatible.';$('symptom').value='Online research could not complete: '+e.message+'\n\nTry again or open the manufacturer parts catalog. No purchase recommendation has been verified.';}
+}
+
+async function investigateReplacementCharger(question){
+ $('assistant-status').textContent='Identifying this computer before researching a replacement charger · Offline · Read-only';
+ $('symptom').value='Your question: '+question+'\n\nChecking the computer manufacturer and model…';
+ try{
+  const result=await getJSON('/api/hardware-upgrade'),d=result.hardware||{};
+  if(!d.available)throw Error(d.reason||'Windows did not return a model');
+  const make=String(d.Manufacturer||'Unknown').trim(),model=String(d.Model||'Unknown').trim();
+  const evidence=`Manufacturer: ${make}; computer model: ${model}; system type: ${d.SystemType||'unknown'}; motherboard: ${d.BoardProduct||'unknown'}`;
+  const lines=[`Your question: ${question}`,`Computer identified: ${make} ${model}`,'A replacement charger must match the exact laptop configuration, connector type, supported voltage and required wattage. USB-C charging support cannot be assumed from the presence of a USB-C port.','Windows does not reliably report the original charger manufacturer part number, wattage, or connector. PC Medic will not guess.','Next: verify the exact machine type/model (MTM) and OEM charger specification against the manufacturer support/parts catalog. A photo of the old charger label or the full model number can help.','Would you like to research a compatible replacement online? You can choose Claude or OpenAI and review what is shared. Those APIs may not have live web search; unverified part numbers, prices, and store listings must not be presented as facts.'];
+  $('symptom').value=lines.join('\n\n');
+  $('assistant-status').textContent='Charger investigation ready · Manufacturer/model identified · No scan or cloud request started.';
+  showResearchOffer('replacement laptop charger',question,evidence+'; verify OEM FRU/part number, connector, voltage, watts; search manufacturer, CDW, Amazon, Micro Center');
+ }catch(e){$('symptom').value='Your question: '+question+'\n\nI could not identify this laptop: '+e.message+'\nPlease supply the exact model or check System Information. I will not guess at a replacement charger.';$('assistant-status').textContent='Hardware identification unavailable.';}
+}
+async function investigateReplacementPart(question,kind){
+ $('assistant-status').textContent='Identifying computer for '+kind+' · Offline · Read-only';
+ $('symptom').value='Your question: '+question+'\n\nChecking manufacturer and model…';
+ try{
+  const result=await getJSON('/api/hardware-upgrade'),d=result.hardware||{};
+  if(!d.available)throw Error(d.reason||'Hardware inventory unavailable');
+  const make=String(d.Manufacturer||'Unknown').trim(),model=String(d.Model||'Unknown').trim();
+  $('symptom').value='Your question: '+question+'\n\nComputer identified: '+make+' '+model+'\n\nFor a replacement battery, PC Medic needs the exact manufacturer battery FRU/part number and supported configuration. Windows cannot reliably confirm a compatible replacement battery.\n\nWould you like to search online for manufacturer and retailer candidates? No part will be marked verified based on a search title alone.';
+  $('assistant-status').textContent='Battery investigation ready · Online research optional.';
+  showResearchOffer(kind,question,'Manufacturer: '+make+'; Model: '+model);
+ }catch(e){$('symptom').value='Hardware identification unavailable: '+e.message;$('assistant-status').textContent='Could not identify computer.';}
+}
+async function openRequestedUtility(question,tool){
+ $('symptom').value='Your question: '+question+'\n\nPC Medic can open '+(tool==='powershell'?'PowerShell':'Command Prompt')+'. This opens a Windows command interface; no commands will be entered or executed by PC Medic.\n\nConfirm the action below.';
+ $('assistant-status').textContent='Waiting for approval to open a Windows utility.';
+ const approved=await pcConfirm('Open Windows utility?',`Open ${tool==='powershell'?'PowerShell':'Command Prompt'}? PC Medic will not run any commands.`, 'Open utility');
+ if(!approved){$('assistant-status').textContent='Cancelled. Nothing was opened.';return;}
+ try{const r=await request('/api/windows-tool',{tool,approved:true});$('assistant-status').textContent=r.message||'Windows launch requested.';}
+ catch(e){$('assistant-status').textContent='Unable to open utility: '+e.message;}
+}
+function showPortsClarification(question){
+ pendingClarification={kind:'ports',original:question};
+ $('symptom').value='Your question: '+question+'\n\nDo you mean physical ports (USB, HDMI, Ethernet), network ports (TCP/UDP services), or memory slots? These are different things. Please choose one; no diagnostic has started.';
+ document.getElementById('port-choices')?.remove();const row=document.createElement('div');row.id='port-choices';row.className='actions below';
+ for(const [value,label] of [['physical','Physical connections'],['network','Network TCP/UDP ports'],['slots','RAM slots']]){
+ const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent=label;b.onclick=()=>{row.remove();pendingClarification=null;$('pc-question').value='';answerPorts(question,value)};row.append(b)}
+ $('assistant-status').after(row);$('assistant-status').textContent='Waiting for your choice · No diagnostic started.';
+}
+async function answerPorts(question,kind){
+ if(kind==='network'){$('symptom').value='Your question: '+question+'\n\nNetwork ports are numbered endpoints used by applications. A safe investigation can list listening TCP/UDP ports and owning processes. That collector is not installed yet; PC Medic will not claim a port count without inspecting Windows. No port scan was started.';return;}
+ if(kind==='physical'){$('symptom').value='Your question: '+question+'\n\nPhysical ports include USB, HDMI, Ethernet and audio connectors. Windows can inventory connected controllers but cannot reliably count all external sockets. Check the manufacturer service manual for the exact model. No diagnostic was started.';return;}
+ await answerHardwareQuestion(question+' → RAM slots','ram');
+}
+
+function showMemoryClarification(text){
+ pendingClarification={kind:'memory',original:text};
+ $('symptom').value=`Your question: ${text}\n\nWhen you say “memory,” do you mean:\n• RAM — helps run more programs at once\n• Storage — holds files and applications\n• Graphics memory (VRAM) — used by the graphics card\n\nChoose one of the options below. No diagnostic has started.`;
+ let row=document.getElementById('memory-choices');if(row)row.remove();row=document.createElement('div');row.id='memory-choices';row.className='actions below';
+ for(const [kind,label] of [['ram','RAM'],['storage','Storage / SSD'],['video','Graphics / VRAM']]){const b=document.createElement('button');b.className='secondary';b.textContent=label;b.onclick=async()=>{row.remove();pendingClarification=null;$('pc-question').value='';await answerHardwareQuestion(text,kind)};row.append(b)}
+ $('assistant-status').after(row);$('assistant-status').textContent='Choose which kind of memory you mean. PC Medic will not run a performance test.';
+}
+async function answerInventoryQuestion(question){
+ $('assistant-status').textContent='Inspecting installed hardware using Windows (read-only)...';
+ $('symptom').value='Your question: '+question+'\n\nPC Medic is checking your hardware...';
+ try{
+ const result=await getJSON('/api/hardware-upgrade');const d=result.hardware||{};
+ if(!d.available){$('symptom').value='Your question: '+question+'\n\nHardware inventory unavailable: '+(d.reason||'Unknown error');return;}
+ const arr=x=>Array.isArray(x)?x:x?[x]:[];const q=question.toLowerCase();let lines=['Your question: '+question,'Computer: '+(d.Manufacturer||'Unknown')+' '+(d.Model||'Unknown')];
+ if(/\b(model|manufacturer|make|what.*computer|what.*pc|which.*computer|which.*pc|system information|specs|specifications)\b/.test(q)){lines.push('Manufacturer: '+(d.Manufacturer||'Not reported'));lines.push('Model: '+(d.Model||'Not reported'));lines.push('System type: '+(d.SystemType||'Not reported'));lines.push('Motherboard: '+(d.BoardManufacturer||'Unknown')+' '+(d.BoardProduct||''));lines.push('BIOS: '+(d.BIOSVersion||'Not reported'));} else if(/display|monitor|screen/.test(q)){const mons=arr(d.Monitors);lines.push('Detected displays: '+(mons.length?mons.map(x=>(x.Manufacturer||'')+' '+(x.Model||'Unknown display')).join('; '):'Windows did not expose a monitor model.'));lines.push('Note: a built-in laptop screen or an adapter may not expose its exact panel model.');}
+ else if(/video|graphics|gpu|vram/.test(q)){const cards=arr(d.Video);lines.push('Graphics adapters: '+(cards.length?cards.map(x=>(x.Name||'Unknown GPU')+' (driver '+(x.DriverVersion||'unknown')+')').join('; '):'Not reported'));lines.push('Reported video memory may be inaccurate on shared-memory GPUs.');}
+ else if(/ssd|storage|hard drive|disk/.test(q)){const disks=arr(d.Drives);lines.push('Installed physical drives: '+(disks.length?disks.map(x=>(x.Model||'Unknown')+' · '+(x.Size?(Number(x.Size)/1e9).toFixed(0)+' GB':'capacity unknown')+' · '+(x.InterfaceType||'interface unknown')).join('; '):'Not reported'));lines.push('Physical upgrade fit, free slots and supported drive types require the model service manual.');}
+ else if(/processor|cpu/.test(q)){lines.push('Windows can identify the processor through System Details. For a CPU upgrade, verify the exact motherboard and BIOS support.');}
+ else {const modules=arr(d.Modules);lines.push('Installed RAM: '+(d.TotalPhysicalMemory?(Number(d.TotalPhysicalMemory)/1073741824).toFixed(1)+' GB':'unavailable'));modules.forEach((m,i)=>lines.push('RAM '+(i+1)+': '+(m.Capacity?(Number(m.Capacity)/1073741824).toFixed(1)+' GB':'unknown')+' · '+(m.Speed||m.ConfiguredClockSpeed||'?')+' MT/s · '+String(m.PartNumber||'part number unavailable').trim()+' · '+(m.DeviceLocator||'slot unknown')));lines.push('RAM is the working memory used by open applications. The speed shown is the module data rate; the part number identifies the installed module, not necessarily a compatible replacement.');lines.push('Reported slot counts do not confirm physical upgrade slots; RAM may be soldered.');}
+ lines.push('No performance diagnostic was necessary.');
+ if(/upgrade|add|more|replace|buy|purchase/.test(q))lines.push('Would you like to research a compatible upgrade? I can prepare the exact manufacturer/model and hardware details, but verifying OEM limits and current retailer stock requires online research.');
+ $('symptom').value=lines.join('\n\n');$('assistant-status').textContent='Hardware investigation complete · Offline · Read-only.';
+ if(/upgrade|add|more|replace|buy|purchase/i.test(q))showResearchOffer(/ssd|storage|hard drive|disk/.test(q)?'SSD/storage':/video|graphics|gpu/.test(q)?'graphics':'RAM',question,lines.slice(1,7).join('; '));
+ }catch(e){$('symptom').value='Hardware investigation could not finish: '+e.message;$('assistant-status').textContent='Hardware information unavailable.';}
+}
+function guidedPlan(symptom){
+ const t=symptom.toLowerCase();
+ if(/slow|lag|freeze|freezing|stutter|cpu|memory|ram|spike|fan|hot|overheat|performance|intermittent/.test(t))return {kind:'watch',label:'Performance Watch',why:'Your description suggests a performance or intermittent issue. PC Medic will collect a short 1-minute performance sample first.'};
+ return {kind:'health',label:'AI-guided Health Check',why:'PC Medic will review system health, storage, drivers and relevant Windows events to investigate your symptom.'};
+}
+async function answerNetworkQuestion(question){
+ $('assistant-status').textContent='Reading active Windows network configuration (read-only).';
+ $('symptom').value='Your question: '+question+'\n\nChecking Windows network settings…';
+ try{
+  const result=await getJSON('/api/network-info');const data=result.network||{};
+  if(!data.available){$('symptom').value='Your question: '+question+'\n\nNetwork information unavailable: '+(data.reason||'Unknown error');return;}
+  const adapters=Array.isArray(data.Adapters)?data.Adapters:data.Adapters?[data.Adapters]:[];
+  const q=question.toLowerCase();const values=x=>Array.isArray(x)?x.filter(Boolean):x?[x]:[];
+  const want=(pattern)=>pattern.test(q);
+  const all=want(/ipconfig|\/all|all network|network configuration|network settings|adapter details/);
+  const lines=['Your question: '+question,'PC Medic checked '+adapters.length+' active IP-enabled network adapter(s). No network settings were changed.'];
+  if(want(/host.?name|computer name/)||all)lines.push('Computer name: '+(data.HostName||'Not reported'));
+  if(!adapters.length)lines.push('No active IP-enabled adapters were reported. A disconnected adapter might not appear.');
+  adapters.forEach((a,i)=>{
+   const label=a.Description||'Network adapter '+(i+1);
+   const ips=values(a.IPAddress);const ipv4=ips.filter(x=>/^\d{1,3}(\.\d{1,3}){3}$/.test(x));const ipv6=ips.filter(x=>x.includes(':'));
+   const show=(title,v)=>lines.push(title+': '+(values(v).join(', ')||'Not reported'));
+   lines.push('\nAdapter '+(i+1)+': '+label);
+   if(all||want(/ip address|ipv4|my ip|local ip|private ip|ipconfig/))show('IPv4 address',ipv4);
+   if(all||want(/ipv6/))show('IPv6 address',ipv6);
+   if(all||want(/subnet|mask/))show('Subnet mask',a.IPSubnet);
+   if(all||want(/gateway|router/))show('Default gateway',a.DefaultIPGateway);
+   if(all||want(/dns/))show('DNS servers',a.DNSServerSearchOrder);
+   if(all||want(/dhcp|lease/)){
+    lines.push('DHCP enabled: '+(a.DHCPEnabled===true?'Yes':a.DHCPEnabled===false?'No':'Not reported'));
+    show('DHCP server',a.DHCPServer);
+    if(all||want(/lease/)){show('Lease obtained',a.DHCPLeaseObtained);show('Lease expires',a.DHCPLeaseExpires);}
+   }
+   if(all||want(/mac|physical address/))show('MAC / physical address',a.MACAddress);
+   if(all||want(/dns suffix|domain/))show('DNS domain / suffix',a.DNSDomain);
+   if(all||want(/wins/))show('WINS server',a.WINSPrimaryServer);
+   if(!all&&!want(/ip address|ipv4|ipv6|subnet|mask|gateway|router|dns|dhcp|lease|mac|physical address|wins/)){
+    show('IPv4 address',ipv4);show('Default gateway',a.DefaultIPGateway);show('DNS servers',a.DNSServerSearchOrder);
+   }
+  });
+  if(want(/my ip|ip address|public ip|external ip/))lines.push('These are local network addresses. Your public internet IP cannot be reliably determined from ipconfig /all alone; checking it requires an external service.');
+  if(want(/dns/))lines.push('DNS servers translate website names into network addresses. An incorrect DNS setting can prevent websites from loading even when Wi-Fi is connected.');
+  if(want(/gateway/))lines.push('The default gateway is typically your router or the device that connects your local network to other networks.');
+  if(want(/dhcp/))lines.push('DHCP automatically assigns IP settings. This report does not change or renew your address.');
+  lines.push('You can ask a follow-up about DNS, DHCP, gateway, IPv4, IPv6, subnet mask, or MAC address.');
+  $('symptom').value=lines.join('\n\n');$('assistant-status').textContent='Network investigation complete · Offline · Read-only.';
+ }catch(e){$('symptom').value='Network investigation could not finish: '+e.message;$('assistant-status').textContent='Network investigation unavailable.';}
+}
+async function startGuidedDiagnosis(){
+ const typed=$('pc-question').value.trim();
+ if(typed){conversationContext.lastQuestion=typed;}
+ if(running||watchActive){$('assistant-status').textContent='Another diagnostic is running. Wait until it finishes before starting a new investigation.';return;}
+ if(!typed&&(watchReport||reportReady)){
+  $('provider-dialog').showModal();return;
+ }
+ if(!typed){
+  $('assistant-status').textContent='Describe the problem in the assessment box first, or use the manual Health Check button below.';
+  $('pc-question').focus();return;
+ }
+ document.getElementById('research-results')?.remove();userSymptom=typed.slice(0,350);
+ $('pc-question').value='';
+ // Multi-turn clarification: interpret a short reply in the context of the prior question.
+ if(pendingClarification){
+  const previous=pendingClarification;
+  const kind=hardwareKind(typed);
+  const shortReply=typed.split(/\s+/).length<=7;
+  if(previous.kind==='ports' && shortReply && /\b(usb|hdmi|physical|network|tcp|udp|ram|memory|slots?)\b/i.test(typed)){pendingClarification=null;await answerPorts(previous.original,/ram|memory|slot/i.test(typed)?'slots':/network|tcp|udp/i.test(typed)?'network':'physical');return;}
+  if(previous.kind==='memory' && kind!=='ambiguous' && shortReply){
+   pendingClarification=null;
+   document.getElementById('memory-choices')?.remove();
+   $('pc-question').value='';
+   await answerHardwareQuestion(previous.original+' → '+typed,kind);
+   return;
+  }
+  // An unrelated new question should not be mistaken for the previous answer.
+  pendingClarification=null;
+  document.getElementById('memory-choices')?.remove();
+ }
+
+ if(/\b(?:replacement|new|lost|missing|buy|purchase|need|find|charger|power adapter|ac adapter)\b/i.test(typed) && /\b(?:charger|power adapter|ac adapter|charging brick|power supply)\b/i.test(typed)){await investigateReplacementCharger(typed);return;}
+ if(/\b(?:replacement|new|lost|missing|buy|purchase|need|find)\b/i.test(typed) && /\b(?:battery|batteries)\b/i.test(typed)){await investigateReplacementPart(typed,'replacement laptop battery');return;}
+ if(/\b(?:open|launch|start|run)\b/i.test(typed) && /\b(?:powershell|power shell|command prompt|cmd(?:\.exe)?|dos)\b/i.test(typed)){await openRequestedUtility(typed,/powershell|power shell/i.test(typed)?'powershell':'command-prompt');return;}
+ if(/\b(?:my ip|ip address|ipconfig|ipv4|ipv6|gateway|dns server|dhcp|subnet mask|mac address)\b/i.test(typed)){await answerNetworkQuestion(typed);return;}
+ if(/\b(ports?|sockets?)\b/i.test(typed)&&/\b(how many|what|which|show|list|have|installed)\b/i.test(typed)){showPortsClarification(typed);return;}
+ if(pendingResearch && /^(yes|yes please|please|research|look it up|search|go ahead|sure|find it|find parts|where can i buy(?: it)?|buy it|yes research(?: it)?)[.! ]*$/i.test(typed)){prepareUpgradeResearch();return;}
+ if(pendingResearch && /^(no|no thanks|stay offline|not now)[.! ]*$/i.test(typed)){pendingResearch=null;document.getElementById('research-choices')?.remove();$('pc-question').value='';$('assistant-status').textContent='Staying offline. No information was shared.';return;}
+ let understanding;
+ try{understanding=await request('/api/intent',{question:userSymptom});}
+ catch(e){$('assistant-status').textContent='Offline understanding unavailable: '+e.message+'. No scan started.';return;}
+ // Multi-part upgrade requests: gather installed evidence first, then offer a real research action.
+ if(/\b(ram|memory|ssd|hard drive|storage|graphics card|gpu)\b/i.test(typed) && /\b(upgrad|add|buy|purchase|compatible|where can i (?:buy|find)|research)\w*/i.test(typed)){
+   const kind=/\b(ssd|hard drive|storage)\b/i.test(typed)?'storage':/\b(graphics card|gpu|vram)\b/i.test(typed)?'video':'ram';
+   if(/\bmemory\b/i.test(typed)&&kind==='ram'&&!/\bram\b/i.test(typed)){showMemoryClarification(typed);return;}
+   await answerHardwareQuestion(typed,kind);return;
+ }
+ if(understanding.intent==='network_inventory'){await answerNetworkQuestion(userSymptom);return;}
+ if(understanding.intent==='hardware_inventory'){await answerInventoryQuestion(userSymptom);return;}
+ if(understanding.intent==='memory_clarify'){showMemoryClarification(userSymptom);return;}
+ if(understanding.intent==='ram_upgrade'){await answerHardwareQuestion(userSymptom,'ram');return;}
+ if(understanding.intent==='storage_upgrade'){await answerHardwareQuestion(userSymptom,'storage');return;}
+ if(understanding.intent==='graphics_upgrade'){await answerHardwareQuestion(userSymptom,'video');return;}
+ if(understanding.scan==='none'){
+  $('symptom').value=`Your question: ${userSymptom}\n\nPC Medic understands this as: ${understanding.intent.replace(/_/g,' ')}\n\n${understanding.answer}\n\nNo diagnostic was started.`;
+  $('assistant-status').textContent='Offline guidance ready · No diagnostic needed. You can refine your question or choose a manual scan.';
+  lastAutoAssessment=$('symptom').value;
+  return;
+ }
+ const plan=understanding.scan==='watch'?{kind:'watch',label:'Performance Watch',why:understanding.answer}:{kind:'health',label:'AI-guided Health Check',why:understanding.answer};guidedPending=plan;
+ $('symptom').value=`Your reported problem: ${userSymptom}\n\nPC Medic plan: ${plan.why}\n\nStarting ${plan.label}…`;
+ $('assistant-status').textContent=`PC Medic selected ${plan.label}. Collecting local, read-only evidence; no cloud data is sent.`;
+ if(plan.kind==='watch'){
+  $('watch-duration').value='1';switchTab('performance');await runWatch();
+  switchTab('home');
+  $('symptom').value=`Your reported problem: ${userSymptom}\n\n${$('watch-summary').textContent}\n\nNext: Ask PC Medic to interpret this evidence or run a full health check.`;
+ }else{
+  await healthCheck();
+ }
+ guidedPending=null;
+ updateNextActions();
+ $('assistant-status').textContent='Diagnostic finished. Results are shown above. Click Ask PC Medic again for AI interpretation, or run another diagnostic.';
+}
+function setStatus(message,bad=false){$('status').textContent=(bad?'● ':'● ')+message;$('status').style.color=bad?'#b64d5d':'';}
+function metric(label,value,detail,pct){const e=html('div','panel metric');e.append(html('div','label',label),html('div','number',value));if(finite(pct)){const bar=html('div','bar'),fill=html('div');fill.style.width=Math.max(0,Math.min(100,pct))+'%';bar.append(fill);e.append(bar)}e.append(html('small','',detail||''));return e}
+function renderReport(payload){token=payload.csrf||token;report=payload.report;analysis=payload.analysis||{findings:[]};demo=!!payload.demo;reportReady=true;const c=report.checks||{},data=k=>c[k]?.data,mem=data('memory'),cpu=arr(data('cpu'))[0],os=data('os'),disks=arr(data('disks'));const used=mem&&finite(Number(mem.TotalGB))&&finite(Number(mem.FreeGB))&&Number(mem.TotalGB)>0?100*(Number(mem.TotalGB)-Number(mem.FreeGB))/Number(mem.TotalGB):null;const cpuPct=cpu?.LoadPercentage==null?null:Number(cpu.LoadPercentage);const root=$('metrics');root.replaceChildren(metric('CPU',finite(cpuPct)?fmt(cpuPct,0)+'%':'Unavailable','Snapshot utilization',cpuPct),metric('Memory',finite(used)?fmt(used)+'%':'Unavailable',mem?.TotalGB?`${fmt(Number(mem.TotalGB)-Number(mem.FreeGB))} of ${mem.TotalGB} GB used`:'No memory data',used));let size=0,free=0;for(const d of disks){const s=Number(d.SizeGB),f=Number(d.FreeGB);if(d.SizeGB!=null&&d.FreeGB!=null&&finite(s)&&finite(f)&&s>0){size+=s;free+=f}}root.append(metric('Storage',size?fmt(size-free,1)+' GB':'Unavailable',size?`${fmt(free,1)} GB free of ${fmt(size,1)} GB`: 'No storage data',size?100*(size-free)/size:null),metric('System','Windows',os?.Caption?.replace(/^Microsoft\s+/,'')||'OS unavailable',null));const storage=$('storage-details');storage.replaceChildren();for(const d of disks){const s=Number(d.SizeGB),f=Number(d.FreeGB),valid=d.SizeGB!=null&&d.FreeGB!=null&&finite(s)&&finite(f)&&s>0;const card=html('div','detail');card.append(html('strong','',`Drive ${d.DeviceID||'?'}`),html('div','value',valid?`${fmt(f,2)} GB free of ${fmt(s,2)} GB`:'Capacity unavailable'));if(valid){const bar=html('div','bar'),fill=html('div');fill.style.width=Math.min(100,100*(s-f)/s)+'%';bar.append(fill);card.append(bar,html('small','',`${fmt(100*f/s)}% free`))}storage.append(card)}const system=$('system-details');system.replaceChildren();for(const [label,value] of [['Operating system',os?.Caption],['Version',os?.Version],['Processor',cpu?.Name],['Installed RAM',mem?.TotalGB?mem.TotalGB+' GB':null],['Last system scan',report.generated_at_utc?new Date(report.generated_at_utc).toLocaleString():null]]){const box=html('div','detail');box.append(html('strong','',label),html('div','value',value||'Unavailable'));system.append(box)}$('collector-output').textContent=Object.entries(c).map(([k,v])=>`${k}: ${v.status||'unknown'}`).join('\n');buildIssues();recommendWindowsTools();setStatus(demo?'Simulated demo':'Latest scan available');}
+function addIssue(title,detail,severity,question,id){issues.push({id,title,detail,severity,question})}
+let autoQuestion='';
+function syncFindingQuestion(force=false){const box=$('question');if(!box)return;const current=box.value.trim();if(!force&&current&&current!==autoQuestion)return;const chosen=issues.filter(x=>selected.has(x.id));const next=chosen.length?'Please investigate these '+chosen.length+' findings: '+chosen.map(x=>x.title).join('; ')+'. Explain their significance and safe next steps.':'No findings selected. Please review my latest computer health check and explain whether anything needs attention.';autoQuestion=next.slice(0,500);box.value=autoQuestion;}
+
+let lastAutoAssessment='';let userSymptom='';
+function updateAssessment(){
+ if(!reportReady)return;
+ const box=$('symptom');const current=box.value.trim();
+ if(current&&current!==lastAutoAssessment)userSymptom=current;
+ const serious=issues.some(x=>/critical|urgent|high/i.test(x.severity||''));
+ const verdict=serious?'Fix soon — review the flagged issues':issues.length?'Watch — no urgent failure confirmed':'Healthy — no actionable issues detected in available checks';
+ const summary=issues.length?issues.slice(0,3).map((x,i)=>`${i+1}. ${x.title}. ${x.detail}`).join('\n'):'No concerns flagged by the available checks.';
+ const steps=issues.length?'Next: Review these findings with PC Medic and follow safe, evidence-based recommendations.':'Next: No action needed right now unless you notice symptoms.';
+ lastAutoAssessment=`${verdict}\n${summary}\n${steps}`.slice(0,1500);
+ box.value=(userSymptom?'Your reported symptom: '+userSymptom.slice(0,350)+'\n\n':'')+lastAutoAssessment;
+}
+function updateVerdict(){
+ const findings=issues||[];const serious=findings.some(x=>/critical|urgent|high/i.test(x.severity||''));
+ const title=!reportReady?'Ready to check your PC':serious?'Fix soon — review these findings':findings.length?'Watch — no confirmed urgent failure':'Healthy — no actionable issues detected';
+ const panel=$('verdict');panel.classList.toggle('fix',serious);panel.classList.toggle('watch',!serious&&findings.length>0);
+ $('verdict-title').textContent=title;
+ $('verdict-desc').textContent=!reportReady?'Run your first check to get a verdict.':findings.length?`${findings.length} observation(s) to review. Findings are not confirmed faults.`:'No issues flagged by the available rule-based checks. This does not guarantee hardware health.';
+ const next=$('verdict-next');next.replaceChildren();findings.slice(0,3).forEach((x,i)=>next.append(html('div','',`${i+1}. ${x.title} — ${x.detail}`)));
+ if(reportReady&&!findings.length)next.textContent='Next: No action needed right now unless you are experiencing symptoms.';updateAssessment();
+}
+function buildIssues(){const prior=new Set(selected);issues=[];const fs=analysis?.findings||[];for(let i=0;i<fs.length;i++){const f=fs[i];addIssue(f.title||'Diagnostic finding',f.evidence||f.recommended_next_step||'Review recommended',f.severity||'info',`Please explain this finding, what it means and safe next steps: ${f.title||'diagnostic finding'}.`, 'scan-'+i)}const memFinding=issues.find(x=>/memory/i.test(x.title));if(memFinding&&processSamples.length){const ps=arr(processSamples.at(-1)?.processes).slice(0,3);if(ps.length)memFinding.detail+=' · Top resident processes: '+ps.map(x=>`${x.name||'Unknown'} ${x.working_set_mb??'?'} MB`).join(', ');}const v=k=>perfSamples.map(s=>s[k]).filter(finite);const cpu=v('cpu_percent'),memory=v('memory_used_percent'),avail=v('memory_available_mb');if(cpu.length&&Math.max(...cpu)>=90)addIssue('High CPU sample observed',`Peak ${fmt(Math.max(...cpu))}% during investigation`,'warning','Investigate high CPU utilization and suggest safe next steps.','cpu');if(memory.length&&Math.max(...memory)>=90)addIssue('High memory utilization observed',`Peak ${fmt(Math.max(...memory))}% during investigation`,'warning','Investigate memory pressure and suggest safe next steps.','memory');if(avail.length&&Math.min(...avail)<512)addIssue('Very little available RAM observed',`Minimum ${fmt(Math.min(...avail),0)} MB available`,'warning','Investigate low available RAM and explain possible effects.','available');selected=new Set(issues.map(x=>x.id));renderIssues();syncFindingQuestion();updateVerdict();}
+function renderIssues(){const roots=[$('issues'),$('all-findings')];for(const root of roots){root.replaceChildren();if(!issues.length){root.append(html('div','empty',reportReady?'No rule-based concerns flagged by the latest scan. You can still ask PC Medic a question.':'Run a health check to see findings.'));continue}issues.forEach(issue=>{const row=html('label','issue'),check=html('input');check.type='checkbox';check.checked=selected.has(issue.id);check.addEventListener('change',()=>{if(check.checked)selected.add(issue.id);else selected.delete(issue.id);renderIssues();syncFindingQuestion();});const ico=html('span','issueicon '+(issue.severity==='info'?'info':''),issue.severity==='info'?'i':'!'),txt=html('div');txt.append(html('strong','',issue.title),html('small','',issue.detail));row.append(check,ico,txt);root.append(row)})} $('issue-count').textContent=issues.length+' finding'+(issues.length===1?'':'s');$('evidence-note').textContent=`Latest system scan${perfSamples.length?' + '+perfSamples.length+' performance samples':''} used automatically. ${selected.size} finding${selected.size===1?'':'s'} selected. No cloud sharing without approval.`;}
+function updatePerformance(){const latest=perfSamples.at(-1);$('perf-count').textContent=perfSamples.length+' samples';const root=$('perf-metrics');root.replaceChildren();if(latest){for(const [label,key,suffix] of [['CPU','cpu_percent','%'],['Memory used','memory_used_percent','%'],['Available RAM','memory_available_mb',' MB'],['Disk busy','disk_busy_percent','%']])root.append(metric(label,finite(latest[key])?fmt(latest[key])+suffix:'Unavailable','Latest measurement',key.endsWith('percent')?latest[key]:null))}plot();renderIssues();}
+function updateCpuOverview(){
+ if(!perfSamples.length)return;
+ const values=perfSamples.map(s=>s.cpu_percent).filter(finite);if(!values.length)return;
+ const average=values.reduce((a,b)=>a+b,0)/values.length,peak=Math.max(...values);
+ const cpuCard=$('metrics').firstElementChild;if(!cpuCard)return;
+ const number=cpuCard.querySelector('.number'),detail=cpuCard.querySelector('small');
+ if(number)number.textContent=fmt(average,0)+'% avg';
+ if(detail)detail.textContent=`Peak ${fmt(peak,0)}% · ${values.length} samples (not a single snapshot)`;
+ const fill=cpuCard.querySelector('.bar>div');if(fill)fill.style.width=Math.min(100,average)+'%';
+}
+function plot(){if(watchActive||watchReport)return;const svg=$('perf-chart');svg.replaceChildren();const ns='http://www.w3.org/2000/svg';for(let y=0;y<=4;y++){const l=document.createElementNS(ns,'line');for(const [k,v] of Object.entries({x1:0,x2:700,y1:10+y*40,y2:10+y*40,stroke:'#9cacc0','stroke-opacity':'.3'}))l.setAttribute(k,v);svg.append(l)}for(const [key,color] of [['cpu_percent','#3c8bf0'],['memory_used_percent','#28bc96'],['disk_busy_percent','#e9a33a']]){let seg=[];const flush=()=>{if(seg.length>1){const line=document.createElementNS(ns,'polyline');line.setAttribute('points',seg.join(' '));line.setAttribute('fill','none');line.setAttribute('stroke',color);line.setAttribute('stroke-width','3');svg.append(line)}seg=[]};perfSamples.forEach((s,i)=>{const val=s[key];if(!finite(val)){flush();return}seg.push(`${perfSamples.length===1?0:i*700/(perfSamples.length-1)},${170-Math.max(0,Math.min(100,val))*1.6}`)});flush()}}
+async function getJSON(path){const r=await fetch(path,{method:'GET',cache:'no-store'});const contentType=r.headers.get('content-type')||'';if(!contentType.includes('application/json'))throw Error('Hardware service returned a non-JSON response (HTTP '+r.status+'). Check the PC Medic server window.');const p=await r.json();if(!r.ok)throw Error(p.error||'HTTP '+r.status);return p;}
+async function request(path,body){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-PC-Medic-Token':token},body:JSON.stringify(body)});const p=await r.json();if(!r.ok)throw Error(p.error||`HTTP ${r.status}`);return p}
+async function load(){try{const r=await fetch('/api/report',{cache:'no-store'}),p=await r.json();token=p.csrf||token;if(!r.ok)throw Error(p.error||'No report');renderReport(p)}catch(e){setStatus('No scan loaded');$('metrics').replaceChildren(metric('CPU','—','Run health check'),metric('Memory','—','Run health check'),metric('Storage','—','Run health check'),metric('System','—','Run health check'));$('issue-count').textContent='Ready for first scan';}}
+function updateProgress(stage,pct,desc){$('run-progress').classList.toggle('scan-complete',stage==='Health check complete');$('run-progress').classList.toggle('scan-interrupted',stage==='Health check interrupted');$('run-stage').textContent=stage;$('run-bar').style.width=Math.max(0,Math.min(100,pct))+'%';$('run-progress-text').textContent=desc;setStatus(stage)}
+// Stage 2.1: live monitoring graph, short selectable duration, and local-only report.
+let watchActive=false,watchStop=false,watchSnapshots=[],watchSamples=[],watchStarted=0,watchReport=null,watchError='';
+function setWatchBanner(state,title,detail){const el=$('watch-banner');el.className='watch-banner '+state;$('watch-banner-icon').textContent=state==='complete'?'✓':state==='running'?'◉':state==='interrupted'?'!':'◌';$('watch-banner-title').textContent=title;$('watch-banner-detail').textContent=detail;}
+function updateNextActions(){
+ const ready=!!watchReport&&!watchActive&&!running&&watchSamples.length>0;
+ $('open-assistant').classList.toggle('next-action',ready);
+ $('run-check').classList.toggle('next-action',ready);
+ $('open-assistant').disabled=running||watchActive;
+ $('open-assistant').title=ready?'Analyze the completed Performance Watch':running||watchActive?'Wait for the current diagnostic':'Describe a problem to start guided diagnosis';
+ $('run-check').title=ready?'Run a full Health Check for more evidence':'';
+}
+function syncDiagnosticAvailability(){const blocked=running&&!watchActive;if(blocked){setWatchBanner('blocked','⏳ HEALTH CHECK IN PROGRESS','Another diagnostic is collecting data. Performance Watch will become available automatically when the health check finishes.');}else if(!watchActive&&!watchReport){setWatchBanner('idle','READY TO MONITOR','No other diagnostic is running. Select a duration and start a watch.');}else if(!watchActive&&watchReport){setWatchBanner(watchError?'interrupted':'complete',watchError?'WATCH INTERRUPTED':'✓ WATCH COMPLETE',`${watchSamples.length} samples collected · ${watchSnapshots.length} spike captures`);} $('watch-start').disabled=running||watchActive;$('watch-duration').disabled=running||watchActive;$('run-check').disabled=running||watchActive;const h=$('health-availability');if(h){const title=$('health-availability-title'),detail=$('health-availability-detail');if(watchActive){h.className='health-availability blocked';title.textContent='⏳ PERFORMANCE WATCH IN PROGRESS';detail.textContent='AI-guided Health Check is unavailable while Performance Watch collects data. Wait for the watch to finish or select Stop & Analyze.';}else if(running){h.className='health-availability running';title.textContent='● HEALTH CHECK IN PROGRESS';detail.textContent='Diagnostic collection is underway. Please wait until the scan finishes.';}else if($('run-progress').classList.contains('scan-complete')){h.className='health-availability complete';title.textContent='✓ HEALTH CHECK COMPLETE';detail.textContent='The previous scan finished. You may run another health check.';}else{h.className='health-availability ready';title.textContent='READY FOR HEALTH CHECK';detail.textContent='No Performance Watch is running. You can start a health check.';}$('run-check').title=watchActive?'Unavailable: Performance Watch is running':running?'Health check in progress':'';}updateNextActions();}
+function watchMetric(s){return [['CPU','cpu_percent',90],['Memory','memory_used_percent',90],['Disk','disk_busy_percent',95]].filter(([label,key,threshold])=>finite(s[key])&&s[key]>=threshold).map(([label,key,threshold])=>`${label} ${fmt(s[key])}% (threshold ${threshold}%)`)}
+function drawWatchGraph(){
+ const svg=$('perf-chart');svg.replaceChildren();const ns='http://www.w3.org/2000/svg';
+ for(let y=0;y<=4;y++){const l=document.createElementNS(ns,'line');for(const [k,v] of Object.entries({x1:0,x2:700,y1:10+y*40,y2:10+y*40,stroke:'#9cacc0','stroke-opacity':'.3'}))l.setAttribute(k,v);svg.append(l)}
+ for(const [key,color] of [['cpu_percent','#3c8bf0'],['memory_used_percent','#28bc96'],['disk_busy_percent','#e9a33a']]){
+  let seg=[];const flush=()=>{if(seg.length>1){const line=document.createElementNS(ns,'polyline');line.setAttribute('points',seg.join(' '));line.setAttribute('fill','none');line.setAttribute('stroke',color);line.setAttribute('stroke-width','3');svg.append(line)}seg=[]};
+  watchSamples.forEach((s,i)=>{if(!finite(s[key])){flush();return}seg.push(`${watchSamples.length===1?0:i*700/(watchSamples.length-1)},${170-Math.max(0,Math.min(100,s[key]))*1.6}`)});flush();
+ }
+}
+function finishWatch(){
+ const metrics={};for(const [label,key] of [['CPU','cpu_percent'],['Memory','memory_used_percent'],['Disk','disk_busy_percent']]){const vals=watchSamples.map(s=>s[key]).filter(finite);metrics[label]={peak:vals.length?Math.max(...vals):null,average:vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null};}
+ watchReport={started_at:new Date(watchStarted).toISOString(),ended_at:new Date().toISOString(),duration_seconds:Math.round((Date.now()-watchStarted)/1000),sample_interval_seconds:10,samples:watchSamples,metrics,spike_snapshots:watchSnapshots};
+ const summary=Object.entries(metrics).map(([k,v])=>`${k}: peak ${finite(v.peak)?fmt(v.peak)+'%':'unavailable'}, avg ${finite(v.average)?fmt(v.average)+'%':'unavailable'}`).join(' · ');
+ $('watch-summary').textContent=`Session complete · ${watchSamples.length} samples · ${watchSnapshots.length} spike snapshot(s). ${summary}. ${watchSnapshots.length?'Review snapshots below.':'No configured spike threshold was reached; this does not rule out intermittent issues.'}`;
+ $('watch-export').disabled=false;$('watch-ai').disabled=!watchSamples.length;updateNextActions();setWatchBanner(watchError?'interrupted':'complete',watchError?'WATCH INTERRUPTED':'✓ WATCH COMPLETE',`${watchSamples.length} samples collected · ${watchSnapshots.length} spike captures · ${new Date().toLocaleTimeString()}`);
+}
+async function runWatch(){
+ if(watchActive||running){syncDiagnosticAvailability();return;}
+ const minutes=Number($('watch-duration').value);if(![1,3,5,10,30].includes(minutes))return;
+ watchActive=true;watchStop=false;watchSnapshots=[];watchSamples=[];watchReport=null;watchError='';watchStarted=Date.now();setWatchBanner('running','● WATCH IN PROGRESS',`${minutes} minute session · collecting evidence`);$('watch-summary').textContent='Monitoring in progress…';$('watch-ai').disabled=true;$('watch-start').disabled=true;$('watch-stop').disabled=false;$('watch-duration').disabled=true;$('watch-export').disabled=true;$('watch-events').replaceChildren();drawWatchGraph();
+ try{
+  let lastCapture=0;
+  while(!watchStop&&Date.now()-watchStarted<minutes*60000){
+   const s=await request('/api/performance-sample',{});
+   watchSamples.push({at:new Date().toISOString(),cpu_percent:s.cpu_percent,memory_used_percent:s.memory_used_percent,disk_busy_percent:s.disk_busy_percent});drawWatchGraph();
+   const spikes=watchMetric(s),elapsed=Math.floor((Date.now()-watchStarted)/1000);
+   $('watch-status').textContent=`Watching · ${Math.floor(elapsed/60)}m ${elapsed%60}s elapsed / ${minutes}m · ${watchSamples.length} samples · ${watchSnapshots.length} spikes. Keep this tab open.`;setWatchBanner('running','● WATCH IN PROGRESS',`${Math.floor(elapsed/60)}m ${elapsed%60}s / ${minutes}m · ${watchSamples.length} samples`);
+   if(spikes.length&&Date.now()-lastCapture>=60000){
+    lastCapture=Date.now();let processes=[];
+    try{const p=await request('/api/process-memory',{});processes=arr(p.processes).slice(0,3).map(x=>({name:String(x.name||'Unknown').slice(0,80),working_set_mb:x.working_set_mb}));}catch(e){}
+    const snap={at:new Date().toISOString(),spikes,processes};watchSnapshots.push(snap);
+    const card=html('div','detail');card.append(html('strong','',`${new Date(snap.at).toLocaleTimeString()} · ${spikes.join(' · ')}`),html('small','',processes.length?'Top memory processes: '+processes.map(x=>`${x.name} ${x.working_set_mb??'?'} MB`).join(', '):'Process snapshot unavailable'));$('watch-events').prepend(card);
+    if(watchSnapshots.length>=30){watchStop=true;break;}
+   }
+   if(watchStop)break;
+   await sleep(10000);
+  }
+ }catch(e){watchError=e.message;$('watch-status').textContent='Watch interrupted: '+e.message;}
+ finally{watchActive=false;$('watch-stop').disabled=true;finishWatch();syncDiagnosticAvailability();$('watch-status').textContent+=` · Ended. Report available below.`;}
+}
+$('watch-start').onclick=runWatch;syncDiagnosticAvailability();
+$('watch-stop').onclick=()=>{watchStop=true;$('watch-status').textContent='Stopping and analyzing after current measurement…';};
+$('watch-ai').onclick=()=>{if(!watchReport)return;switchTab('home');$('question').value='Analyze my completed performance watch together with the latest health check and Windows event findings. Identify likely issues, distinguish normal activity from real problems, and recommend safe next steps.';$('provider-dialog').showModal();};
+$('watch-export').onclick=()=>{if(!watchReport)return;const blob=new Blob([JSON.stringify(watchReport,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='pc-medic-watch-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+async function loadHistory(){
+ try{
+  const r=await fetch('/api/history',{cache:'no-store'});if(!r.ok)throw Error('History unavailable');const data=await r.json();const records=arr(data.history);const root=$('history-results');root.replaceChildren();
+  if(!records.length){root.textContent='No completed health checks saved yet.';$('history-compare').textContent='';return;}
+  for(const entry of records.slice(-8).reverse()){
+   const m=entry.metrics||{},row=html('div','detail');row.append(html('strong','',new Date(entry.at_utc).toLocaleString()),html('small','',`Memory peak: ${finite(m.memory_peak)?fmt(m.memory_peak)+'%':'—'} · CPU peak: ${finite(m.cpu_peak)?fmt(m.cpu_peak)+'%':'—'} · Findings: ${entry.finding_count??'—'} · Event window: ${entry.event_window_hours||24}h`));root.append(row);
+  }
+  const recent=records.slice(-6),high=recent.filter(x=>finite(x.metrics?.memory_peak)&&x.metrics.memory_peak>=80).length;
+  const latest=records.at(-1),prev=records.at(-2);
+  $('history-compare').textContent=`Memory above 80% in ${high} of last ${recent.length} scans.`+(prev?` Latest vs previous: findings ${prev.finding_count} → ${latest.finding_count}; memory peak ${fmt(prev.metrics?.memory_peak)}% → ${fmt(latest.metrics?.memory_peak)}%.`:' Run another scan to compare.');
+ }catch(e){$('history-results').textContent='Unable to load local history: '+e.message;}
+}
+async function saveHistory(){
+ const vals=k=>perfSamples.map(x=>x[k]).filter(finite),cpu=vals('cpu_percent'),mem=vals('memory_used_percent'),disk=vals('disk_busy_percent');
+ const disks=arr(report?.checks?.disks?.data),c=disks.find(x=>x.DeviceID==='C:');const free=c&&Number(c.SizeGB)>0?100*Number(c.FreeGB)/Number(c.SizeGB):null;
+ const stats={cpu_peak:cpu.length?Math.max(...cpu):null,memory_peak:mem.length?Math.max(...mem):null,memory_latest:mem.length?mem.at(-1):null,disk_peak:disk.length?Math.max(...disk):null,c_free_pct:finite(free)?Math.max(0,Math.min(100,free)):null};
+ try{await request('/api/history-save',{stats,finding_count:issues.length,performance_samples:perfSamples.length});await loadHistory();await updateDiskForecast();}catch(e){$('history-compare').textContent='Could not save history: '+e.message;}
+}
+$('history-refresh').onclick=loadHistory;
+loadHistory();
+async function healthCheck(){if(running||watchActive){syncDiagnosticAvailability();return;}const typed=$('symptom').value.trim();if(typed&&typed!==lastAutoAssessment&&!typed.startsWith('Your reported symptom:')&&!typed.startsWith('Your reported problem:'))document.getElementById('research-results')?.remove();userSymptom=typed.slice(0,350);running=true;syncDiagnosticAvailability();$('run-progress').classList.remove('scan-complete','scan-interrupted');stopRequested=false;processSamples=[];perfSamples=[];$('run-check').disabled=true;$('run-progress').classList.remove('hidden');$('export').disabled=true;try{if(!demo){updateProgress('Scanning Windows',3,'Collecting system, hardware, storage and event information');const p=await request('/api/scan',{});renderReport(p)}else{updateProgress('Demo health check',3,'Using simulated Windows system data');await load()}
+ for(let i=0;i<3&&!stopRequested;i++){if(i)await sleep(4000);if(stopRequested)break;updateProgress('Checking running processes',10+i*6,`Process memory sample ${i+1} of 3`);const p=await request('/api/process-memory',{});processSamples.push(p);$('process-output').textContent=processSamples.map((s,n)=>`Sample ${n+1}:\n`+arr(s.processes).map(x=>`${x.name||x.Name||'Process'} (PID ${x.pid||x.PID||'?'}): ${x.working_set_mb??'—'} MB`).join('\n')).join('\n\n')}
+ for(let i=0;i<13&&!stopRequested;i++){if(i)await sleep(5000);if(stopRequested)break;updateProgress('Monitoring performance',30+Math.round(65*(i+1)/13),`Sample ${i+1} of 13 · CPU, memory and disk activity`);const p=await request('/api/performance-sample',{});perfSamples.push(p);updatePerformance();updateCpuOverview()}
+ if(perfSamples.length>=2){updateProgress('Preparing findings',97,'Reviewing the available measurements');await request('/api/performance-summary',{samples:perfSamples})}
+ updateProgress(stopRequested?'Health check stopped':'Health check complete',100,`${processSamples.length} process and ${perfSamples.length} performance samples collected. Review findings below.`);$('export').disabled=!(perfSamples.length||processSamples.length);buildIssues();updateCpuOverview();if(!stopRequested){syncFindingQuestion();updateAssessment();await saveHistory();}setStatus(stopRequested?'Partial results available':'Health check complete');
+ }catch(e){updateProgress('Health check interrupted',100,e.message+' · Partial results are retained');setStatus('Check interrupted',true);$('export').disabled=!(perfSamples.length||processSamples.length)}finally{running=false;$('stop-check').disabled=true;syncDiagnosticAvailability()}}
+$('run-check').onclick=healthCheck;$('stop-check').onclick=()=>{stopRequested=true;$('stop-check').disabled=true;updateProgress('Stopping','95','Finishing the current read-only measurement')};
+function performanceEvidence(){const source=watchReport?.samples?.length?watchReport.samples:perfSamples;if(!source.length)return null;const picked=source.length<=20?source:Array.from({length:20},(_,i)=>source[Math.round(i*(source.length-1)/19)]);const evidence={performance_samples:picked.map(s=>{const out={};for(const key of ['cpu_percent','memory_used_percent','memory_available_mb','disk_busy_percent','disk_queue_length'])if(finite(s[key]))out[key]=s[key];return out})};if(watchReport){evidence.watch_summary={sample_count:watchReport.samples.length,duration_seconds:watchReport.duration_seconds,metrics:watchReport.metrics,spike_count:watchReport.spike_snapshots.length};}return evidence;}
+const providerButtons=[...document.querySelectorAll('[data-provider]')];providerButtons.forEach(b=>b.onclick=()=>{provider=b.dataset.provider;providerButtons.forEach(x=>x.classList.toggle('active',x===b));$('share-preview').hidden=true;});
+document.querySelectorAll('[data-modal-provider]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-modal-provider]').forEach(x=>x.classList.toggle('selected',x===b));});
+$('provider-cancel').onclick=()=>$('provider-dialog').close();
+$('provider-continue').onclick=()=>{
+ const choice=document.querySelector('[data-modal-provider].selected')?.dataset.modalProvider||'offline';
+ const target=document.querySelector(`[data-provider="${choice}"]`);if(target)target.click();
+ const assessment=$('symptom').value.trim();
+ if(assessment && !pendingResearch && !$('question').value.trim()){$('question').value=watchReport&&!reportReady?'Analyze my completed Performance Watch for the reported freezing. Explain what the samples show, what they cannot prove, and the next diagnostic step.':'Explain my current PC Medic health assessment and give safe, specific next steps for the detected findings.';}
+ if(pendingResearch && choice==='offline'){$('provider-dialog').close();$('assistant-status').textContent='Offline cannot verify live compatibility or current listings. Choose Claude/OpenAI or stay offline.';return;}
+ $('provider-dialog').close();$('ai-ask').click();
+};
+$('ai-ask').onclick=async()=>{const q=$('question').value.trim(),selectedFindings=issues.filter(x=>selected.has(x.id));if(!q&&!selectedFindings.length){$('ai-response').textContent='Ask a question or select a finding to investigate.';return}const baseQuestion=q||'Explain the selected diagnostic findings and safe next steps.';const findingText=pendingResearch?'':selectedFindings.length?'\nSelected findings: '+selectedFindings.map(x=>x.title).join('; '):'';const question=(baseQuestion.slice(0,500)+findingText.slice(0,Math.max(0,500-baseQuestion.length))).slice(0,500);const cloud=provider!=='offline';if(cloud){const message=`Send to ${provider==='claude'?'Anthropic Claude':'OpenAI'}?\n\nYour question and selected finding titles will be sent, along with a sanitized system summary${performanceEvidence()?' and sanitized numeric performance/watch evidence':''}.\n\nNo process names, PIDs, usernames, raw event messages or IP addresses are included. If you chose upgrade research, the typed prompt may contain the computer manufacturer, model and module part numbers.\n\nCancel sends nothing.`;if(!confirm(message)){$('ai-response').textContent='Cloud request cancelled. No information was sent.';$('assistant-status').textContent=$('ai-response').textContent;return}}const button=$('ai-ask');button.disabled=true;$('ai-response').textContent=cloud?'Contacting '+provider+'...':'Reviewing available evidence offline...';$('assistant-status').textContent=$('ai-response').textContent;$('symptom').value=$('ai-response').textContent;try{const p=await request(cloud?'/api/ai-ask':'/api/ask',cloud?{question,provider,consent:true,tool_approved:false,investigation:performanceEvidence()}:{question,investigation:performanceEvidence()});renderAIResult(p.answer||'No response returned',cloud?provider:'offline');$('symptom').value=$('ai-response').textContent;lastAutoAssessment=$('symptom').value;pendingResearch=null;document.getElementById('research-choices')?.remove();$('assistant-status').textContent='Analysis complete · '+(cloud?provider==='claude'?'Claude':'OpenAI':'Offline')+' · You can edit this result or ask a follow-up.'}catch(e){$('ai-response').textContent='Investigation unavailable: '+e.message+'\nYou can choose Offline for local guidance.';$('symptom').value='AI analysis unavailable: '+e.message+'\n\n'+(watchReport?$('watch-summary').textContent:'Please run a diagnostic first.');$('assistant-status').textContent=$('ai-response').textContent}finally{button.disabled=false}};
+
+function renderAIResult(answer,engine){
+ $('storage-action').classList.toggle('hidden', !(/(?:disk|drive|storage|space|C:)/i.test(String(answer))));
+ const full=String(answer||'No response returned').trim();
+ offerAITools(full);
+ const detail=$('ai-detail');detail.hidden=false;detail.open=false;$('ai-full').textContent=full;
+ // Preserve a complete response in Details, but keep the primary panel compact.
+ const summaryMatch=full.match(/(?:^|\n)\s*(?:\*\*)?Summary:(?:\*\*)?\s*([\s\S]*?)(?=\n\s*(?:\*\*)?What to do next:|$)/i);
+ const nextMatch=full.match(/(?:^|\n)\s*(?:\*\*)?What to do next:(?:\*\*)?\s*([\s\S]*)/i);
+ if(summaryMatch&&nextMatch){
+  const summary=summaryMatch[1].trim().replace(/\*\*/g,'');
+  const next=nextMatch[1].trim().replace(/\*\*/g,'');
+  $('ai-response').textContent='Summary\n'+summary+'\n\nWhat to do next\n'+next;
+ }else{
+  // Older offline guidance and noncompliant provider responses get a short preview.
+  const text=full.replace(/\*\*/g,'').replace(/^#+\s*/gm,'').trim();
+  const first=text.split(/(?<=[.!?])\s+/).filter(Boolean).slice(0,3).join(' ');
+  $('ai-response').textContent='Summary\n'+first.slice(0,420)+(first.length>420?'…':'')+'\n\nWhat to do next\nReview the full analysis below for recommended actions.';
+ }
+}
+
+function localSummary(){const cpu=perfSamples.map(x=>x.cpu_percent).filter(finite),mem=perfSamples.map(x=>x.memory_used_percent).filter(finite);const lines=[];if(cpu.length)lines.push(`CPU peak: ${fmt(Math.max(...cpu))}% across ${cpu.length} samples.`);if(mem.length)lines.push(`Memory usage: ${fmt(mem.at(-1))}% in latest sample.`);lines.push('Measurements are snapshots, not a confirmed root cause. No repairs were made.');return lines.join('\n')}
+$('preview').onclick=async()=>{try{const r=await fetch('/api/share-preview',{cache:'no-store'}),p=await r.json();if(!r.ok)throw Error(p.error||'Preview unavailable');$('share-preview').textContent=JSON.stringify({system_evidence:p.evidence,performance_evidence:performanceEvidence(),selected_findings:issues.filter(x=>selected.has(x.id)).map(x=>x.title),question:$('question').value},null,2);$('share-preview').hidden=false}catch(e){$('share-preview').textContent=e.message;$('share-preview').hidden=false}};
+$('export').onclick=()=>{const blob=new Blob([JSON.stringify({format:'pc-medic-v1.8',exported_at_utc:new Date().toISOString(),process_samples:processSamples,performance_samples:perfSamples},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),a=html('a');a.href=url;a.download='pc-medic-health-check.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+
+
+// In-app confirmation: no browser "prevent this site from prompting" checkbox.
+function pcConfirm(title, message, buttonLabel='Open tool'){
+ return new Promise(resolve=>{
+  const dlg=$('pc-confirm'),ok=$('pc-confirm-ok'),cancel=$('pc-confirm-cancel');
+  if(dlg.open){resolve(false);return;}
+  $('pc-confirm-title').textContent=title;
+  $('pc-confirm-message').textContent=message;
+  ok.textContent=buttonLabel;
+  let accepted=false;
+  const close=()=>dlg.close();
+  const finish=()=>{ok.removeEventListener('click',yes);cancel.removeEventListener('click',close);dlg.removeEventListener('close',finish);resolve(accepted);};
+  const yes=()=>{accepted=true;close();};
+  ok.addEventListener('click',yes);cancel.addEventListener('click',close);
+  dlg.addEventListener('close',finish);
+  dlg.showModal();
+ });
+}
+// Advanced controls never run based on AI text; both UI and server enforce approval.
+const techToggle=$('advanced-tech');
+function syncTech(){for(const id of ['advanced-verifier','advanced-wpr'])$(id).disabled=!techToggle.checked;}
+techToggle.onchange=syncTech;
+async function launchAdvanced(id){
+ const labels={regedit:'Registry Editor',verifier:'Driver Verifier',wpr:'Windows Performance Recorder help',gpedit:'Group Policy',secpol:'Security Policy'};
+ if((id==='verifier'||id==='wpr')&&!techToggle.checked)return;
+ const risk=id==='verifier'?'WARNING: Driver Verifier can cause a BSOD or boot loop. Know how to enter Safe Mode and reset verifier first.':id==='regedit'?'Back up the specific registry key using File > Export, or create a restore point before changing anything.':'PC Medic will only open this utility; no changes will be applied automatically.';
+ if(!await pcConfirm('Advanced tool: '+labels[id],risk+'\n\nContinue to final confirmation?', 'Continue'))return;
+ if(!await pcConfirm('Final confirmation','Open '+labels[id]+' now?\n\nWindows may request administrator approval.', 'Open tool'))return;
+ try{const r=await request('/api/advanced-launch',{tool:id,approved:true,confirmed:true,technician:techToggle.checked});$('advanced-status').textContent=r.message;}
+ catch(e){$('advanced-status').textContent='Unable to open '+labels[id]+': '+e.message;}
+}
+for(const id of ['regedit','verifier','wpr','gpedit','secpol'])$('advanced-'+id).onclick=()=>launchAdvanced(id);
+$('advanced-lookup').onclick=async()=>{try{const r=await request('/api/advanced-lookup',{root:$('advanced-root').value,path:$('advanced-path').value,value:$('advanced-value').value});$('advanced-status').textContent='Read-only result (type '+r.type+'): '+r.value;}catch(e){$('advanced-status').textContent='Lookup failed: '+e.message;}};
+fetch('/api/advanced-capabilities',{cache:'no-store'}).then(r=>r.json()).then(p=>{$('advanced-edition').textContent='Detected Windows edition: '+p.edition+(p.policy_available?' · Policy editors supported':' · Policy editors unavailable');$('advanced-policy-card').hidden=!p.policy_available;$('advanced-security-card').hidden=!p.policy_available;}).catch(()=>{$('advanced-edition').textContent='Could not determine Windows edition; policy editors hidden.';});
+
+async function scanDiskHealth(){
+ const button=$('disk-health-scan'),root=$('disk-health-results');button.disabled=true;root.textContent='Scanning Windows physical disks and reliability counters…';
+ try{
+  const result=await request('/api/disk-health',{}),checks=result.checks||{};root.replaceChildren();
+  const physical=arr(checks.storage_health?.data),reliability=arr(checks.drive_reliability?.data),volumes=arr(checks.disks?.data);
+  if(checks.storage_health?.status!=='ok')root.append(html('p','muted','Physical disk health information unavailable or access denied.'));
+  if(!physical.length&&checks.storage_health?.status==='ok')root.append(html('p','muted','No physical disks returned by Windows.'));
+  for(const d of physical){const card=html('div','detail'),name=String(d.FriendlyName||'Physical disk'),status=String(d.HealthStatus||'Unknown'),r=reliability.find(x=>x.FriendlyName===d.FriendlyName||String(x.DeviceId)===String(d.DeviceId));card.append(html('strong','',name+' — '+status),html('div','',`Media: ${d.MediaType||'Unknown'} · Operational: ${arr(d.OperationalStatus).join(', ')||d.OperationalStatus||'Unknown'}`));
+   if(r&&!r.Unavailable){const lines=[['Temperature',r.Temperature,'°C'],['Wear counter',r.Wear,'% (vendor-specific)'],['Read errors',r.ReadErrorsTotal,''],['Write errors',r.WriteErrorsTotal,''],['Uncorrected read errors',r.ReadErrorsUncorrected,''],['Uncorrected write errors',r.WriteErrorsUncorrected,'']].filter(x=>x[1]!==null&&x[1]!==undefined);for(const [label,val,unit] of lines)card.append(html('small','',label+': '+val+unit));}
+   else card.append(html('small','muted','Reliability counters not exposed by this drive/controller.'));root.append(card);}
+  if(checks.drive_reliability?.status!=='ok')root.append(html('p','muted','Detailed reliability counters unavailable.'));
+  if(volumes.length){const row=html('div','detail');row.append(html('strong','','Logical volumes'));for(const d of volumes)row.append(html('small','',`${d.DeviceID||'?'}: ${d.FreeGB??'?'} GB free of ${d.SizeGB??'?'} GB`));root.append(row);}
+  root.append(html('small','muted','Read-only. Healthy status and available counters do not replace a full SMART assessment or backup.'));
+ }catch(e){root.textContent='Disk health scan unavailable: '+e.message;}finally{button.disabled=false;}
+}
+$('disk-health-scan').onclick=scanDiskHealth;
+async function updateDiskForecast(){try{const r=await fetch('/api/disk-forecast',{cache:'no-store'});const d=(await r.json()).forecast;if(!d)return;$('disk-forecast').textContent=d.status==='estimate'?`Disk-space forecast: at the measured rate, C: could fill in approximately ${d.days_until_full} days (${d.free_pct}% free; ${d.pct_points_per_day} percentage points/day). Estimate only.`:d.message;}catch(e){$('disk-forecast').textContent='Forecast unavailable.';}}
+updateDiskForecast();
+// Windows tools: fixed allowlist; explicit approval for every launch.
+const windowsTools=[
+ ['storage-explorer','Storage Explorer','Review large personal files inside PC Medic; nothing is deleted automatically.'],
+ ['storage-settings','Windows Storage Settings','Review disk usage and cleanup options.'],
+ ['disk-health','Scan for Disk Health','Run a read-only Windows drive-health and reliability scan inside PC Medic.'],
+ ['optimize','Optimize Drives','Review drive media type and Windows optimization status; do not optimize automatically.'],
+ ['event-viewer','Event Viewer','Correlate Windows errors with crash or slowdown timestamps.'],
+ ['reliability','Reliability Monitor','View crash and stability history.'],
+ ['services','Windows Services','Inspect running and stopped services; do not change them automatically.'],
+ ['startup','Startup Apps','Review apps configured to launch when you sign in.'],
+ ['system-config','System Configuration','Advanced startup troubleshooting; change settings only if you understand them.'],
+ ['device-manager','Device Manager','Inspect device status and driver details.'],
+ ['task-manager','Task Manager','Review CPU, memory, disk, and processes.'],
+ ['windows-update','Windows Update','Review update history and failed updates.'],
+ ['display','Display Settings','Review resolution, scaling, refresh rate, and monitors.'],
+ ['power','Power & Battery','Review power mode, sleep, and battery settings.'],
+ ['lockscreen','Lock Screen','Review lock screen, sign-in and related timeout settings.'],
+ ['windows-security','Windows Security','Review antivirus, firewall, and device security.'],
+ ['resource-monitor','Resource Monitor','Investigate disk, network, memory activity, and locked files by process.'],
+ ['system-information','System Information','Review detailed hardware, Windows, and software configuration.'],
+ ['task-scheduler','Task Scheduler','Inspect scheduled tasks, update jobs, and unexpected startup tasks; do not disable tasks automatically.'],
+ ['disk-management','Disk Management','Inspect partitions, offline disks, and unallocated space; changing partitions can destroy data.'],
+ ['computer-management','Computer Management','Open Event Viewer, Disk Management, Services, and shared folders in one console.'],
+ ['network-connections','Network Connections','Inspect network adapters; disabling an adapter may disconnect you.'],
+ ['memory-diagnostic','Windows Memory Diagnostic','May require a restart; save your work before scheduling a memory test.'],
+ ['advanced-startup','Advanced Startup / Recovery','Open Recovery settings to access advanced startup; reboot requires separate Windows confirmation.'],
+ ['security-offline-scan','Microsoft Defender Offline Scan','Open Windows Security; go to Virus & threat protection → Scan options → Microsoft Defender Offline scan. Running it restarts Windows.']
+];
+async function openWindowsTool(tool, statusNode=$('windows-tool-status')){
+ if(tool==='disk-health'){switchTab('storage');await scanDiskHealth();return;}
+ if(tool==='storage-explorer'){switchTab('explorer');return;}
+ const item=windowsTools.find(x=>x[0]===tool);if(!item)return;
+ if(['memory-diagnostic','advanced-startup','security-offline-scan'].includes(tool) && !await pcConfirm('Restart warning','This utility can require restarting Windows. Save your work first. PC Medic only opens the utility or settings; it does not start a scan or reboot.', 'Continue'))return;
+ if(!await pcConfirm('Open '+item[1]+'?',item[2]+'\n\nPC Medic will not perform maintenance automatically.', 'Open tool'))return;
+ statusNode.textContent='Requesting Windows to open '+item[1]+'...';
+ try{const r=await request('/api/windows-tool',{tool,approved:true,reboot_warning_acknowledged:tool==='memory-diagnostic'});statusNode.textContent=r.message||'Launch requested.';}
+ catch(e){statusNode.textContent='Could not open '+item[1]+': '+e.message+'\nYou can still open this utility manually in Windows.';}
+}
+// AI text is untrusted: it may only suggest known allowlisted tools, never provide paths or commands.
+// Explicit user approval remains required before any Windows tool is opened.
+function offerAITools(answer){
+ const text=String(answer||'');
+ const patterns=[
+  ['display',/\b(?:display settings|screen resolution|display scaling|refresh rate)\b/i],
+  ['power',/\b(?:power (?:&|and) battery|power settings|sleep settings|power mode)\b/i],
+  ['lockscreen',/\b(?:lock screen settings|lockscreen settings|sign-in options)\b/i],
+  ['windows-security',/\b(?:windows security|windows defender|firewall settings|virus & threat protection)\b/i],
+  ['storage-explorer',/\b(?:storage explorer|large files)\b/i],
+  ['storage-settings',/\b(?:storage settings|settings[^\n]{0,30}storage|storage usage)\b/i],
+  ['optimize',/\b(?:optimize drives|defragment(?:ation)?|\btrim\b)\b/i],
+  ['event-viewer',/\b(?:event viewer|windows logs)\b/i],
+  ['reliability',/\b(?:reliability monitor|reliability history)\b/i],
+  ['services',/\b(?:windows services|services console|services\.msc)\b/i],
+  ['startup',/\b(?:startup apps|startup settings)\b/i],
+  ['device-manager',/\b(?:device manager|devmgmt\.msc)\b/i],
+  ['task-manager',/\b(?:task manager|taskmgr)\b/i],
+  ['windows-update',/\b(?:windows update|update history)\b/i],
+  ['resource-monitor',/\b(?:resource monitor|resmon|locked file|disk thrash)\b/i],
+  ['system-information',/\b(?:system information|msinfo32)\b/i],
+  ['task-scheduler',/\b(?:task scheduler|scheduled tasks)\b/i],
+  ['disk-management',/\b(?:disk management|unallocated space|offline disk)\b/i],
+  ['computer-management',/\b(?:computer management)\b/i],
+  ['network-connections',/\b(?:network connections|network adapter settings|ncpa\.cpl)\b/i],
+  ['memory-diagnostic',/\b(?:windows memory diagnostic|memory diagnostic)\b/i],
+  ['advanced-startup',/\b(?:advanced startup|startup repair|safe mode|recovery settings)\b/i],
+  ['security-offline-scan',/\b(?:defender offline scan|windows security offline scan|microsoft defender offline)\b/i]
+ ];
+ const matches=patterns.filter(([id,re])=>re.test(text)).map(([id])=>id).slice(0,5);
+ const target=$('ai-tool-suggestions');target.replaceChildren();target.hidden=!matches.length;
+ if(!matches.length)return;
+ target.append(html('strong','','Windows tools mentioned by PC Medic — open with your approval'));
+ for(const id of matches){const item=windowsTools.find(x=>x[0]===id);if(!item)continue;
+  const b=html('button','secondary','Open '+item[1]);b.type='button';b.style.margin='8px 8px 0 0';b.onclick=()=>openWindowsTool(id);target.append(b);
+ }
+ // The AI cannot silently launch tools; the user chooses an action and confirms it.
+}
+const toolsRoot=$('windows-tool-list');
+for(const [id,name,desc] of windowsTools){const card=html('div','tool-card');card.append(html('strong','',name),html('p','muted small',desc));const button=html('button','secondary','Open '+name);button.type='button';button.onclick=()=>openWindowsTool(id);card.append(button);toolsRoot.append(card);}
+function recommendWindowsTools(){
+ const c=report?.checks||{},disks=arr(c.disks?.data),low=disks.some(d=>Number(d.SizeGB)>0&&Number(d.FreeGB)/Number(d.SizeGB)<.20);
+ const events=arr(c.recent_system_events?.data);const rec=[];
+ if(low)rec.push(['explorer','Review large files'],['storage-settings','Check storage usage']);
+ if(events.length)rec.push(['event-viewer','Review Windows errors'],['reliability','Check stability history']);
+ const target=$('windows-recommendation');target.replaceChildren();
+ target.append(html('strong','','Suggested next steps based on your latest scan (not automatic repairs)'));
+ if(!rec.length){target.append(html('p','muted small','No specific Windows tool suggested. Choose a tool below if needed.'));return;}
+ for(const [id,label] of rec){const b=html('button','secondary',label);b.type='button';b.style.margin='8px 8px 0 0';b.onclick=()=>openWindowsTool(id);target.append(b);}
+}
+$('open-optimize').onclick=()=>openWindowsTool('optimize', $('optimize-status'));
+$('discover-files').onclick=()=>{document.querySelector('[data-tab="explorer"]').click();$('file-search').focus()};
+// Storage Explorer: explicit user-initiated search; no background scan or cloud upload.
+$('file-search').onclick=async()=>{
+ const b=$('file-search');b.disabled=true;$('file-results').replaceChildren();$('file-status').textContent='Searching the selected area locally. This may take up to 40 seconds...';
+ try{
+  const p=await request('/api/storage-search',{category:$('file-category').value,minimum_mb:Number($('file-minimum').value),scope:$('file-scope').value});
+  $('file-status').textContent=`Found ${p.matches} matching files. Showing ${p.files.length}. Inspected ${p.scanned_files} files.${p.limited?' Search limit reached; results may be incomplete.':''} ${p.note} Searched: ${(p.folders||[]).join(', ')||'no accessible folders'}. ${p.matches===0?'Try a smaller minimum size or a broader search area.':''}`;
+  for(const f of p.files){const row=html('div','file-entry'),info=html('div','file-info'),name=html('strong','',f.name),meta=html('small','',`${f.size_mb} MB · ${f.category} · ${f.folder}`),safety=html('small','',f.classification),del=html('button','secondary','Move to Recycle Bin');info.append(name,meta,safety);if(f.recyclable){row.append(info,del)}else{del.disabled=true;del.textContent='Protected — view only';row.append(info,del)}$('file-results').append(row);
+   del.onclick=()=>{
+    if(!f.recyclable)return;
+    // Explicit approval is tied to this exact file. No deletion on initial click.
+    const review=html('div','recycle-review'),heading=html('strong','','Review removal: '+f.name),details=html('p','',`${f.size_mb} MB — ${f.folder}`),warning=html('p','','This moves the file to the Windows Recycle Bin. Confirm you no longer need it.');
+    if(/onedrive|dropbox|google drive/i.test(f.folder))warning.textContent+=' This folder may sync deletions to other devices.';
+    if(f.category==='installers')warning.textContent+=' This appears to be an installer; verify you do not need it for reinstallation.';
+    const label=html('label',''),check=document.createElement('input');check.type='checkbox';label.append(check,document.createTextNode(' I understand and approve moving this specific file to the Recycle Bin.'));
+    const actions=html('div',''),cancel=html('button','secondary','Cancel'),approve=html('button','secondary','Move to Recycle Bin');approve.disabled=true;
+    check.onchange=()=>{approve.disabled=!check.checked};cancel.onclick=()=>review.remove();
+    approve.onclick=async()=>{approve.disabled=true;cancel.disabled=true;approve.textContent='Moving...';try{const result=await request('/api/storage-recycle',{id:f.id,approved:true});row.remove();$('file-status').textContent=result.message}catch(e){approve.disabled=false;cancel.disabled=false;approve.textContent='Move to Recycle Bin';$('file-status').textContent='Could not recycle: '+e.message}};
+    actions.append(cancel,approve);review.append(heading,details,warning,label,actions);row.querySelector('.recycle-review')?.remove();row.append(review);
+   };
+  }
+ }catch(e){$('file-status').textContent='Search unavailable: '+e.message}finally{b.disabled=false}
+};
+let deviceData=[];
+function deviceState(d){const status=(d.status||'').toLowerCase(),code=(d.problem_code||'').toUpperCase();if(code.includes('PHANTOM')||code==='45'||code==='CM_PROB_DEVICE_NOT_THERE')return 'disconnected';if(status==='ok'&&(code===''||code==='CM_PROB_NONE'||code==='0'))return 'working';if(status==='unknown'||(!status&&!code))return 'unknown';return 'attention';}
+function deviceGroup(d){const c=(d.category||'').toLowerCase(),n=(d.name||'').toLowerCase();if(c==='net'||/wi-fi|wireless|ethernet|network adapter/.test(n))return 'Network';if(c==='bluetooth'||n.includes('bluetooth'))return 'Bluetooth';if(['display','monitor'].includes(c))return 'Displays';if(['media','audioendpoint','sound'].includes(c)||/audio|speaker|microphone/.test(n))return 'Audio';if(c.includes('usb')||n.includes('usb'))return 'USB';if(['diskdrive','volume','storage','scsiadapter'].includes(c))return 'Storage';if(c.includes('print'))return 'Printers';if(['camera','image'].includes(c)||/webcam|camera/.test(n))return 'Cameras';if(['keyboard','mouse','hidclass'].includes(c))return 'Input';return 'Other';}
+function deviceAdvice(d){const state=deviceState(d);if(state==='working')return 'Windows reports this device as working. No driver action is indicated by this inventory.';if(state==='disconnected')return 'Windows may be retaining a record of a previously connected device. Reconnect the hardware if needed; do not remove its driver just because it is absent.';if(state==='unknown')return 'Windows did not provide enough status information to establish whether this device needs attention.';return 'Check the device in Windows Device Manager, note its error code, and check Windows Update or the hardware manufacturer’s official support site before making changes.';}
+function showDevices(){const root=$('device-results');root.replaceChildren();const search=$('device-search').value.trim().toLowerCase(),filter=$('device-filter').value,category=$('device-category').value;const subset=deviceData.filter(d=>(filter==='all'||(filter==='connected'?deviceState(d)==='working':filter==='attention'?deviceState(d)==='attention':deviceState(d)===filter))&&(category==='all'||deviceGroup(d)===category)&&(!search||[d.name,d.category,d.driver_provider,d.driver_version].some(v=>(v||'').toLowerCase().includes(search))));if(!subset.length){root.append(html('div','empty',deviceData.length?'No devices match these filters. Try All statuses or clear your search.':'No devices to display.'));return;}for(const d of subset){const state=deviceState(d),card=html('details','detail device-card'),title=html('summary','',d.name||'Unnamed device'),tag=html('span','pill',state==='working'?'Working':state==='disconnected'?'Disconnected':state==='attention'?'Needs attention':'Unknown');tag.style.marginLeft='10px';title.append(tag);const content=html('div','below');content.append(html('div','muted small',`Category: ${deviceGroup(d)} (${d.category||'Other'}) · Windows status: ${d.status||'Unknown'}`),html('div','muted small',`Problem code: ${d.problem_code||'Not reported'}`),html('div','muted small',`Driver: ${d.driver_provider||'Not reported'} · Version: ${d.driver_version||'Not reported'}${d.driver_date?' · '+d.driver_date:''}`),html('p','small',deviceAdvice(d)));const actions=html('div','actions below'),ask=html('button','secondary','Ask AI about this device');ask.type='button';ask.onclick=()=>{const q=$('question');q.value=`Help me understand this Windows device: ${d.name||'Unnamed device'}, category ${d.category||'unknown'}, status ${d.status||'unknown'}, problem code ${d.problem_code||'not reported'}, driver version ${d.driver_version||'not reported'}. What safe troubleshooting steps should I take?`;switchTab('console');q.focus();};const repair=html('button','secondary','Driver Repair Assistant');repair.type='button';repair.onclick=()=>{const existing=content.querySelector('.repair-box');if(existing){existing.remove();return;}const box=html('div','repair-box'),heading=html('strong','',`Guided repair: ${d.name||'Device'}`),statusText=html('p','small',deviceAdvice(d));box.append(heading,statusText);const stateNow=deviceState(d),group=deviceGroup(d);const steps=stateNow==='working'?['No driver change is recommended based on this inventory.','If you are experiencing a real symptom, reproduce it and check Windows Device Manager for new errors.']:stateNow==='disconnected'?['Reconnect the device or HDMI/USB cable, then scan again.','For previously paired wireless devices, verify the device is powered on and in range.','Only remove a stale device in Windows after confirming it is no longer needed.']:['Open Windows Device Manager and inspect the device Properties → General → Device status. Record the complete Windows error code.','Open Settings → Windows Update → Advanced options → Optional updates and check whether a relevant driver is offered.','If Windows offers no suitable driver, use the PC or hardware manufacturer’s official support page. Verify the exact hardware model and Windows version.','Create a restore point or backup before changing drivers; apply one change at a time, then reboot if required and rescan.'];const ol=html('ol');for(const step of steps)ol.append(html('li','',step));box.append(ol);if(['Network','Storage','Displays','Input'].includes(group))box.append(html('p','repair-warning','Caution: Changing this '+group.toLowerCase()+' driver may disrupt connectivity, boot, display or input. Have a recovery plan and avoid uninstalling it casually.'));box.append(html('p','muted small','This assistant is guidance only: no driver download, install, removal, rollback or device disable is performed.'));const a=html('div','actions');const windows=html('a','secondary','Windows Update settings');windows.href='ms-settings:windowsupdate';windows.style.textDecoration='none';windows.title='Opens Windows Settings when supported by your browser';const manager=html('button','secondary','Copy Device Manager command');manager.type='button';manager.onclick=async()=>{try{await navigator.clipboard.writeText('devmgmt.msc');manager.textContent='Copied — press Win+R and paste'}catch(e){manager.textContent='Press Win+R, type devmgmt.msc'}};a.append(windows,manager);box.append(a);content.append(box);};actions.append(ask,repair);content.append(actions,html('div','muted small','Cloud AI does not automatically receive this device inventory. Review the question before sharing.'));card.append(title,content);root.append(card);}}
+$('device-filter').onchange=showDevices;$('device-category').onchange=showDevices;$('device-search').oninput=showDevices;
+$('device-scan').onclick=async()=>{const b=$('device-scan');b.disabled=true;$('device-status').textContent='Reading Windows device inventory...';try{const p=await request('/api/devices',{});deviceData=p.devices||[];const categories=[...new Set(deviceData.map(deviceGroup))].sort();$('device-category').replaceChildren(new Option('All categories','all'),...categories.map(x=>new Option(x,x)));const counts={working:0,disconnected:0,attention:0,unknown:0};deviceData.forEach(d=>counts[deviceState(d)]++);$('device-status').textContent=`Device scan complete: ${deviceData.length} devices · ${counts.working} working · ${counts.disconnected} disconnected · ${counts.attention} need attention · ${counts.unknown} unknown. This is separate from the main health check.`;showDevices();if(!reportReady)setStatus('Device scan complete · Health check not run')}catch(e){$('device-status').textContent='Device scan failed: '+e.message}finally{b.disabled=false}};
+$('theme').onclick=()=>{document.body.classList.toggle('dark');$('theme').textContent=document.body.classList.contains('dark')?'☀':'◐'};
+window.addEventListener('error',e=>{setStatus('Interface error',true);const box=$('ai-response');if(box)box.textContent='Interface error: '+e.message+' — reload the dashboard or check the browser console.'});
+load();
+</script></body></html>
+

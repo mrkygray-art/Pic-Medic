@@ -1,0 +1,1 @@
+PC Medic V1.15 Windows Tools extension. Includes nine additional tools. Memory Diagnostic and Recovery only open the Windows interface after a restart warning; no automatic reboot, scan, or disk modification. Defender Offline Scan opens Windows Security, not the scan itself. All tools require confirmation. Original V1.15 remains unchanged.

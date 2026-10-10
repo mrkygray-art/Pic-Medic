@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+scan.json
+scan_history.json
+*.tmp
+.env
