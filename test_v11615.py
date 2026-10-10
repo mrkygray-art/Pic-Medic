@@ -104,6 +104,12 @@ class TestPartsResearch(unittest.TestCase):
         self.assertIsNone(parts_research.label('http://example.com/82xv', '82XV', '', p))
         token = parts_research.label('https://www.amazon.com/dp/B0C9', 'Superer 170W Charger Fit for Lenovo LOQ Laptop 15IRX9 15IRH8', '', p)
         self.assertEqual(token['match'], 'possible')
+        ram = parts_research.plan(kind='RAM', manufacturer='LENOVO', model='82XV', product_name='LOQ 15IRH8',
+                                  details='2 module(s): 8 GB 5600 MT/s part M425R1GB4BB0-CWMOL; 8 GB 5600 MT/s part M425R1GB4BB0-CWMOL')
+        same_module = parts_research.label('https://www.amazon.com/dp/B0R', 'Samsung 8GB DDR5 5600 SODIMM M425R1GB4BB0-CWM', '', ram)
+        self.assertEqual(same_module['match'], 'possible')
+        pdf = parts_research.label('https://psref.lenovo.com/syspool/Sys/PDF/LOQ/LOQ_15IRH8/LOQ_15IRH8_Spec.PDF', 'OVERVIEW 1. USB 3.2 Gen 1', 'spec', p)
+        self.assertEqual(pdf['title'], 'psref.lenovo.com PDF: LOQ_15IRH8_Spec.PDF')
         messy = parts_research.label('https://psref.lenovo.com/x', '## Model', '**Watts**: 170 Watts\n\n✓ FREE', p)
         self.assertEqual((messy['title'], messy['snippet']), ('Model', 'Watts : 170 Watts FREE'))
 

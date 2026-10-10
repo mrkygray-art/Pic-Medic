@@ -89,7 +89,13 @@ def label(url, title, text, p):
     blob=' '.join((str(title),str(text),str(url))).lower()
     # Model-specific tokens such as '15IRH8' count too; listings often write 'LOQ Laptop 15IRX9 15IRH8'.
     tokens=[t for t in p['product_name'].split() if re.search(r'\d',t) and re.search(r'[A-Za-z]',t) and len(t)>=5]
-    ids=[x.lower() for x in (p['model'],p['product_name'],p['part_number'],*tokens) if x]
+    # Installed module/drive part numbers match on their stem: Windows reports M425R1GB4BB0-CWMOL, listings say -CWM.
+    parts=[x for x in [p['part_number'],*re.findall(r'\bpart ([A-Za-z0-9][A-Za-z0-9-]{7,})',p['details'])] if x]
+    stems=[re.sub(r'^([^-]{6,}-[^-]{3}).*$',r'\1',x) for x in parts]
+    ids=[x.lower() for x in (p['model'],p['product_name'],*parts,*stems,*tokens) if x]
+    if parsed.path.lower().endswith('.pdf'):
+        # PDF titles are often the first line of the page ('OVERVIEW 1. USB 3.2 ...'); name the file instead.
+        title=host+' PDF: '+urllib.parse.unquote(parsed.path.rsplit('/',1)[-1])
     source_type='manufacturer' if p['oem'] and (host==p['oem'] or host.endswith('.'+p['oem'])) else 'retailer' if any(host==r or host.endswith('.'+r) for r in RETAILERS) else 'other'
     tidy=lambda s:' '.join(re.sub(r'[#*`>|]+|✓',' ',str(s)).split())
     return {'title':tidy(title)[:150] or host,'url':str(url),'snippet':tidy(text)[:320],'source_type':source_type,

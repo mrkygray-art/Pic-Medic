@@ -146,6 +146,8 @@ async function prepareUpgradeResearch(){
   }
   lines.push(/charger/i.test(r.kind)?'Before buying a charger: confirm the connector shape, output voltage and wattage on the label of your original adapter or in the manufacturer specifications for your exact model. A lower-wattage adapter may charge slowly or not at all under load.':'Before buying: confirm the exact OEM part number, form factor and supported limits in the manufacturer specifications.');
   $('symptom').value=lines.join('\n\n');
+  // Grow the assessment to fit Claude's answer instead of hiding it behind an inner scrollbar.
+  const box=$('symptom');box.style.height='auto';box.style.height=Math.min(box.scrollHeight+6,720)+'px';
   const wrap=html('div','assist-status');wrap.id='research-results';
   wrap.append(html('strong','',found.sources.length?'Sources Claude cited · Verify before purchasing':'Research links · Open in your browser'));
   const badge={possible:'Possible match',unverified:'Unverified'},where={manufacturer:'Manufacturer',retailer:'Retailer',other:'Other site'};
@@ -293,7 +295,7 @@ async function startGuidedDiagnosis(){
   $('assistant-status').textContent='Describe the problem in the assessment box first, or use the manual Health Check button below.';
   $('pc-question').focus();return;
  }
- document.getElementById('research-results')?.remove();userSymptom=typed.slice(0,350);
+ document.getElementById('research-results')?.remove();$('symptom').style.height='';userSymptom=typed.slice(0,350);
  $('pc-question').value='';
  // Multi-turn clarification: interpret a short reply in the context of the prior question.
  if(pendingClarification){
