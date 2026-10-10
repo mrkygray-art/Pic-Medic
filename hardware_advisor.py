@@ -1,5 +1,5 @@
 """Read-only local hardware inventory and cautious upgrade guidance."""
-import json, os, subprocess
+import json, os, re, subprocess
 
 PS = r'''
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
@@ -12,8 +12,17 @@ $arrays=@(Get-CimInstance Win32_PhysicalMemoryArray | Select-Object MemoryDevice
 $video=@(Get-CimInstance Win32_VideoController | Select-Object Name,AdapterRAM,DriverVersion,VideoProcessor)
 $monitors=@(Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorID | ForEach-Object { [pscustomobject]@{Manufacturer=([Text.Encoding]::ASCII.GetString([byte[]]($_.ManufacturerName | Where-Object {$_ -gt 0})));Model=([Text.Encoding]::ASCII.GetString([byte[]]($_.UserFriendlyName | Where-Object {$_ -gt 0}))) } })
 $drives=@(Get-CimInstance Win32_DiskDrive | Select-Object Model,MediaType,Size,InterfaceType)
-[pscustomobject]@{Manufacturer=$sys.Manufacturer;Model=$sys.Model;SystemType=$sys.SystemType;TotalPhysicalMemory=$sys.TotalPhysicalMemory;BoardManufacturer=$board.Manufacturer;BoardProduct=$board.Product;BIOSVersion=$bios.SMBIOSBIOSVersion;Modules=$sticks;Arrays=$arrays;Video=$video;Monitors=$monitors;Drives=$drives} | ConvertTo-Json -Depth 6 -Compress
+$product=Get-CimInstance Win32_ComputerSystemProduct
+# Battery Name is the OEM battery model (e.g. Lenovo L22D4PA0); DeviceID is omitted because it embeds a serial.
+$battery=@(Get-CimInstance Win32_Battery | Select-Object -ExpandProperty Name)
+[pscustomobject]@{Manufacturer=$sys.Manufacturer;Model=$sys.Model;ProductName=$product.Version;BatteryModels=$battery;SystemType=$sys.SystemType;TotalPhysicalMemory=$sys.TotalPhysicalMemory;BoardManufacturer=$board.Manufacturer;BoardProduct=$board.Product;BIOSVersion=$bios.SMBIOSBIOSVersion;Modules=$sticks;Arrays=$arrays;Video=$video;Monitors=$monitors;Drives=$drives} | ConvertTo-Json -Depth 6 -Compress
 '''
+
+def clean_product_name(value):
+ """Keep a marketing name such as 'LOQ 15IRH8'; drop OEM placeholder strings."""
+ text=str(value or '').strip()
+ if not text or not re.search(r'[A-Za-z]',text) or re.search(r'to be filled|system version|default string|not applicable|^none$|^n/?a$',text,re.I):return ''
+ return text[:60]
 
 def inventory():
  if os.name!='nt': return {'available':False,'reason':'Hardware inventory requires Windows.'}
@@ -21,6 +30,9 @@ def inventory():
   proc=subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-Command',PS],capture_output=True,text=True,timeout=18,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
   if proc.returncode or not proc.stdout.strip(): return {'available':False,'reason':'Windows could not provide hardware inventory.'}
   d=json.loads(proc.stdout.lstrip('\ufeff').strip()); d['available']=True
+  d['ProductName']=clean_product_name(d.get('ProductName'))
+  batteries=d.get('BatteryModels') or []
+  d['BatteryModels']=[str(b).strip() for b in (batteries if isinstance(batteries,list) else [batteries]) if str(b).strip()][:2]
   return d
  except (OSError,ValueError,subprocess.TimeoutExpired):return {'available':False,'reason':'Hardware inventory unavailable or timed out.'}
 

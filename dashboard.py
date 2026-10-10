@@ -1,4 +1,4 @@
-"""PC Medic AI 1.6.1: localhost-only, read-only diagnostics and offline guided Q&A."""
+"""PC Medic AI 1.16.15: localhost-only, read-only diagnostics and offline guided Q&A."""
 import argparse
 import json
 import os
@@ -12,7 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 from hardware_advisor import inventory as hardware_inventory, ram_advice
-from parts_research import research as parts_research
+from parts_research import research as parts_research, preview as parts_preview
 from network_advisor import inventory as network_inventory
 from intent_engine import classify as classify_intent
 from analyze import analyze
@@ -384,16 +384,18 @@ class Handler(BaseHTTPRequestHandler):
     result=ai_ask(provider,question,current_report,self.server.demo,body.get('tool_approved') is True,investigation)
     return self.send_json(result)
    except (RuntimeError,ValueError,OSError) as exc:return self.send_json({'error':str(exc)},502)
-  if path=='/api/parts-research':
-   if body.get('approved') is not True:return self.send_json({'error':'Explicit online research approval required'},403)
+  if path in ('/api/parts-research','/api/parts-research-preview'):
+   fields={k:body.get(k,'') for k in ('kind','manufacturer','model','product_name','part_number')}
    try:
-    return self.send_json(parts_research(body.get('kind',''),body.get('manufacturer',''),body.get('model','')))
+    if path=='/api/parts-research-preview':return self.send_json(parts_preview(**fields))
+    if body.get('approved') is not True:return self.send_json({'error':'Explicit online research approval required'},403)
+    return self.send_json(parts_research(**fields))
    except ValueError as exc:return self.send_json({'error':str(exc)},400)
-   except Exception:return self.send_json({'error':'Online research could not complete'},502)
+   except Exception as exc:return self.send_json({'error':'Online research could not complete ('+type(exc).__name__+')'},502)
   if path=='/api/intent':
    question=body.get('question','')
    if not isinstance(question,str) or len(question)>1500:return self.send_json({'error':'Invalid question'},400)
-   return self.send_json(classify_intent(question))
+   return self.send_json(classify_intent(question,body.get('context')))
   if path=='/api/ask':
    question=body.get('question','')
    if not isinstance(question,str) or not 1<=len(question.strip())<=500:return self.send_json({'error':'Question must be 1–500 characters'},400)
@@ -434,7 +436,7 @@ class Handler(BaseHTTPRequestHandler):
 def main():
  p=argparse.ArgumentParser();p.add_argument('--demo',action='store_true');p.add_argument('--port',type=int,default=8765);a=p.parse_args()
  server=ThreadingHTTPServer(('127.0.0.1',a.port),Handler);server.demo=a.demo
- print(f'PC Medic AI V1.10: http://127.0.0.1:{a.port} ({"SIMULATED DEMO" if a.demo else "LOCAL SCAN"})',flush=True)
+ print(f'PC Medic AI 1.16.15: http://127.0.0.1:{a.port} ({"SIMULATED DEMO" if a.demo else "LOCAL SCAN"})',flush=True)
  print('Diagnostics are read-only. Storage Explorer can move explicitly selected personal files to Recycle Bin. Ctrl+C to stop.',flush=True)
  try:server.serve_forever()
  except KeyboardInterrupt:pass

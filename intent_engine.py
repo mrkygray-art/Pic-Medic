@@ -4,12 +4,43 @@ No cloud, no commands, no automatic diagnostics for informational questions.
 import re
 from offline_knowledge import lookup
 
-def classify(question):
+AFFIRM_TRIGGERS={'yes','yeah','yep','sure','ok','okay','research','search','go','find','buy','proceed','continue'}
+AFFIRM_WORDS=AFFIRM_TRIGGERS|{'please','ahead','it','them','that','this','up','look','online','parts','part','for','me','do','where','can','i','the','one','options','a','and'}
+DECLINE_TRIGGERS={'no','nope','nah','cancel','skip','offline','not'}
+DECLINE_WORDS=DECLINE_TRIGGERS|{'thanks','thank','you','now','stay','dont','do','it','that','please','search','research','online','right'}
+
+def _reply_kind(q):
+    """Classify a short reply as an approval or a refusal of the pending offer."""
+    words=re.sub(r"[^a-z ]",' ',q.replace("'",'')).split()
+    if not words or len(words)>8:return None
+    if set(words)<=DECLINE_WORDS and set(words)&DECLINE_TRIGGERS:return 'decline'
+    if set(words)<=AFFIRM_WORDS and set(words)&AFFIRM_TRIGGERS:return 'affirm'
+    return None
+
+def classify(question, context=None):
     q=' '.join(question.lower().split())
+    context=context if isinstance(context,dict) else {}
     def has(pattern): return bool(re.search(pattern,q,re.I))
+    # Short follow-ups ("Yes, research it", "no thanks") refer to the pending research offer.
+    if context.get('pending_research'):
+        reply=_reply_kind(q)
+        if reply=='affirm':return {'intent':'research_confirm','scan':'none'}
+        if reply=='decline':return {'intent':'research_decline','scan':'none'}
+    elif _reply_kind(q)=='affirm':
+        return {'intent':'clarify','scan':'none','answer':'There is no search waiting for approval right now. Tell me which part you want researched, for example "I need a new charger" or "Can I upgrade my RAM?".'}
+    # Replacement parts are shopping/research requests, not battery-health or charging advice.
+    if has(r'\b(charger|power adapter|ac adapter|charging brick|power brick|power supply)\b') and not has(r'\b(not charging|won.t charge|isn.t charging|stopped charging|charging slow\w*)\b'):
+        return {'intent':'replacement_part','part':'replacement laptop charger','scan':'none'}
+    if has(r'\b(batter(y|ies))\b') and has(r'\b(replace\w*|new|buy|purchase|order|need|find|where can i|swap)\b') and not has(r'\b(drain\w*|health|life|report|lasting|dies fast)\b'):
+        return {'intent':'replacement_part','part':'replacement laptop battery','scan':'none'}
+    # Opening a Windows tool is an allowlisted, user-approved launch, never command execution.
+    if has(r'\b(open|launch|start|run|bring up)\b') and has(r'\b(powershell|power shell|command prompt|cmd(\.exe)?|dos|terminal)\b'):
+        return {'intent':'open_tool','tool':'powershell' if has(r'\b(powershell|power shell|terminal)\b') else 'command-prompt','scan':'none'}
+    if has(r'\b(ports?|sockets?)\b') and has(r'\b(how many|what|which|show|list|have|installed)\b'):
+        return {'intent':'ports_clarify','scan':'none'}
     # Questions about the computer's actual network configuration are inventory requests,
     # not generic how-to advice or reasons to run a broad health scan.
-    network_terms=r'\b(ipconfig|ip address|ipv4|ipv6|subnet|default gateway|gateway|dns|dhcp|mac address|physical address|network adapter|ethernet adapter|wifi adapter|wi-fi adapter|dns suffix|lease|wins|host name|hostname)\b'
+    network_terms=r'\b(ipconfig|ip address|my ip|ip|ipv4|ipv6|subnet|default gateway|gateway|dns|dhcp|mac address|physical address|network adapter|ethernet adapter|wifi adapter|wi-fi adapter|dns suffix|lease|wins|host name|hostname)\b'
     if has(network_terms) and (has(r'\b(what|which|show|tell|list|check|find|my|this|current|installed|configured|configuration|settings|ipconfig)\b') or has(r'\b(dns|dhcp|gateway|ipv4|ipv6|subnet|mac address)\b')):
         return {'intent':'network_inventory','scan':'none','answer':'I will read the active Windows network adapter configuration without changing any settings.'}
     # Compound hardware questions require an inventory and a compatibility handoff,
@@ -17,7 +48,9 @@ def classify(question):
     if has(r'\b(ram|memory|ssd|hard drive|storage|gpu|graphics card)\b') and has(r'\b(upgrade|upgrading|add|buy|purchase|compatible|where can i buy|where to buy)\b'):
         if has(r'\b(memory)\b') and not has(r'\b(ram|ssd|storage|gpu|graphics)\b'):
             return {'intent':'memory_clarify','scan':'none','answer':'Do you mean RAM, storage or graphics memory?'}
-        return {'intent':'hardware_inventory','scan':'none','answer':'I will identify installed hardware, then offer manufacturer compatibility research with your approval.'}
+        if has(r'\b(ssd|hard drive|storage)\b') and not has(r'\b(ram)\b'):return {'intent':'storage_upgrade','scan':'none'}
+        if has(r'\b(gpu|graphics card)\b') and not has(r'\b(ram)\b'):return {'intent':'graphics_upgrade','scan':'none'}
+        return {'intent':'ram_upgrade','scan':'none','answer':'I will identify installed RAM, then offer manufacturer compatibility research with your approval.'}
     # Hardware inventory requests take priority over generic dictionary answers.
     # Everyday questions: local guidance first; never mistake them for a reason to launch a generic scan.
     topics = [
