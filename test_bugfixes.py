@@ -104,16 +104,43 @@ class TestAssistantEndpoint(LocalServer):
         self.assertEqual(self.call('/api/assistant', {'question': 'hi'})[0], 403)
 
     def test_not_configured_is_explicit(self):
-        with patch.dict('os.environ', {}, clear=True):
+        with patch.dict('os.environ', {}, clear=True), patch('settings.load_key', return_value=None):
             status, body = self.call('/api/assistant', {'question': 'hi', 'consent': True})
             self.assertEqual(status, 503)
             self.assertIn('not set up', body['error'])
             self.assertFalse(self.call('/api/assistant-status')[1]['configured'])
 
+    def wait_for(self, job_id):
+        import time
+        for _ in range(100):
+            status, job = self.call('/api/assistant/job?id=' + job_id)
+            if job.get('status') != 'running':
+                return status, job
+            time.sleep(0.05)
+        self.fail('job did not finish')
+
     def test_failures_become_plain_messages(self):
         with patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'k'}), patch('assistant.ask', side_effect=RuntimeError('PC Medic is still answering your previous question.')):
             status, body = self.call('/api/assistant', {'question': 'hi', 'consent': True})
-        self.assertEqual((status, body['error']), (502, 'PC Medic is still answering your previous question.'))
+            self.assertEqual(status, 200)
+            _, job = self.wait_for(body['job_id'])
+        self.assertEqual((job['status'], job['error']), ('error', 'PC Medic is still answering your previous question.'))
+
+    def test_answer_arrives_through_the_job(self):
+        def fake(conv, question, demo, progress, cancelled):
+            progress('Checked battery health…')
+            return {'answer': 'Healthy.', 'conversation_id': 'c1'}
+        with patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'k'}), patch('assistant.ask', side_effect=fake):
+            job_id = self.call('/api/assistant', {'question': 'battery?', 'consent': True})[1]['job_id']
+            _, job = self.wait_for(job_id)
+        self.assertEqual((job['status'], job['result']['answer'], job['steps']), ('done', 'Healthy.', ['Checked battery health…']))
+
+    def test_trial_exhausted_is_reported_before_starting(self):
+        import settings
+        with patch('settings.key_for_use', side_effect=settings.TrialExhausted('You have used the 10 free AI questions')):
+            status, body = self.call('/api/assistant', {'question': 'hi', 'consent': True})
+        self.assertEqual(status, 402)
+        self.assertTrue(body['trial_exhausted'])
 
 
 class TestPackagedCollector(unittest.TestCase):

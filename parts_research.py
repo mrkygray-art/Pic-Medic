@@ -1,10 +1,12 @@
 """Opt-in parts research using Claude's server-side web search. Results are candidates, never compatibility proof.
 
-Requires ANTHROPIC_API_KEY on the server and the `anthropic` package (pip install anthropic).
+Uses the Anthropic key from settings.py (saved, environment or trial) and the `anthropic` package.
 Without a key PC Medic does NOT search; it returns direct manufacturer/retailer links the user can open.
 Claude chooses its own search queries, restricted to the manufacturer and the retailers below.
 """
 import os, re, urllib.parse
+
+import settings
 from datetime import datetime, timezone
 
 MODEL=os.environ.get('PCMEDIC_RESEARCH_MODEL','claude-opus-5-5')
@@ -42,7 +44,7 @@ def _clean(value,limit,name,pattern=FIELD):
     return text
 
 def configured():
-    return bool(os.environ.get('ANTHROPIC_API_KEY','').strip())
+    return settings.available('anthropic')
 
 def plan(kind, manufacturer, model, product_name='', part_number='', details=''):
     """Exactly what would be sent to Claude; shown to the user before consent."""
@@ -103,9 +105,9 @@ def label(url, title, text, p):
     return {'title':tidy(title)[:150] or host,'url':str(url),'snippet':tidy(text)[:320],'source_type':source_type,
             'match':'possible' if any(i in blob for i in ids) else 'unverified'}
 
-def _ask_claude(p):
+def _ask_claude(p, key=None):
     import anthropic
-    client=anthropic.Anthropic(timeout=150.0,max_retries=1)
+    client=anthropic.Anthropic(api_key=key,timeout=150.0,max_retries=2)
     messages=[{'role':'user','content':p['prompt']}]
     # Direct calls, not dynamic filtering: results read through code execution come back without citations,
     # and every claim PC Medic shows must link to its source.
@@ -129,22 +131,26 @@ def research(kind, manufacturer, model, product_name='', part_number='', details
             'search_links':direct_links(p),'errors':[],'verified':False,
             'searched_at_utc':datetime.now(timezone.utc).isoformat(timespec='seconds'),
             'note':'Sources are unverified candidates. Confirm the exact OEM machine type, connector, voltage and wattage (chargers), battery part number (batteries), or slot/form factor and supported capacity (memory/storage). Prices and availability change. Do not buy from a title match alone.'}
-    if not configured():
-        result['errors'].append('Claude web search is not configured on this PC (no ANTHROPIC_API_KEY), so PC Medic did not search. The links below open the manufacturer and retailer searches in your browser.')
+    try:key,source=settings.key_for_use('anthropic')
+    except settings.TrialExhausted as exc:
+        result['errors'].append(str(exc)+' The links below open the manufacturer and retailer searches in your browser.');return result
+    if not key:
+        result['errors'].append('Claude web search is not set up on this PC (add an Anthropic key in Settings), so PC Medic did not search. The links below open the manufacturer and retailer searches in your browser.')
         return result
     try:
         import anthropic
     except ImportError:
         result['errors'].append('The anthropic Python package is not installed (run: pip install anthropic), so PC Medic did not search.')
         return result
-    try:content,searches,usage,served_by=_ask_claude(p)
-    except anthropic.AuthenticationError:result['errors'].append('Anthropic rejected the API key. Check ANTHROPIC_API_KEY.');return result
+    try:content,searches,usage,served_by=_ask_claude(p,key)
+    except anthropic.AuthenticationError:result['errors'].append('Anthropic rejected the API key. Check it in Settings.');return result
     except anthropic.PermissionDeniedError:result['errors'].append('This Anthropic account cannot use web search (an organization admin may have disabled it).');return result
     except anthropic.BadRequestError as exc:result['errors'].append('Anthropic rejected the research request: '+str(getattr(exc,'message',exc))[:200]);return result
     except anthropic.RateLimitError:result['errors'].append('Anthropic rate limit reached. Try again in a minute.');return result
     except (anthropic.APITimeoutError,anthropic.APIConnectionError):result['errors'].append('Could not reach Anthropic. Check the internet connection and try again.');return result
     except anthropic.APIStatusError as exc:result['errors'].append(f'Anthropic service error (HTTP {exc.status_code}). Try again later.');return result
     except RuntimeError as exc:result['errors'].append(str(exc)+'.');return result
+    settings.record_use(source)
     result.update(searched=True,search_count=searches,usage=usage,model=served_by)
     order={};answer=[]
     for block in content:

@@ -63,7 +63,8 @@ LABELS = {'get_computer_overview': 'Read computer model and hardware', 'get_rece
           'web_search': 'Searched the web'}
 
 def configured():
-    return bool(os.environ.get('ANTHROPIC_API_KEY', '').strip())
+    import settings
+    return settings.available('anthropic')
 
 def computer_overview():
     hw = hardware_inventory()
@@ -153,48 +154,146 @@ def _answer(response):
         parts.append(block.text + (' ' + ''.join(marks) if marks else ''))
     return ''.join(parts).strip(), sources
 
-def ask(conv_id, question, demo=False):
+TOOL_TIMEOUT = 60      # seconds for one local check
+TURN_DEADLINE = 240    # seconds before Claude is asked to answer with what it has
+
+def _run_tools(blocks, demo, cache, progress):
+    """Run this response's tool calls in parallel with a timeout; identical calls in one turn reuse the result."""
+    from concurrent.futures import ThreadPoolExecutor, TimeoutError as ToolTimeout
+    results, used = [], []
+    pool = ThreadPoolExecutor(max_workers=4)
+    try:
+        jobs = []
+        for block in blocks:
+            key = block.name + json.dumps(block.input or {}, sort_keys=True)
+            if key in cache:
+                jobs.append((block, None, key))
+                continue
+            check = (block.input or {}).get('check')
+            label = LABELS.get(block.name) or ('Checked ' + system_checks.TITLES.get(check, 'this PC').split(' (')[0].lower())
+            progress(label + '…')
+            jobs.append((block, pool.submit(run_tool, block.name, block.input, demo), key))
+        for block, future, key in jobs:
+            if future is None:
+                data, label = cache[key]
+            else:
+                try:
+                    data, label = future.result(timeout=TOOL_TIMEOUT)
+                    cache[key] = (data, label)
+                except ToolTimeout:
+                    results.append({'type': 'tool_result', 'tool_use_id': block.id, 'content': f'Tool timed out after {TOOL_TIMEOUT} seconds.', 'is_error': True})
+                    continue
+                except Exception as exc:
+                    results.append({'type': 'tool_result', 'tool_use_id': block.id, 'content': f'Tool failed: {type(exc).__name__}', 'is_error': True})
+                    continue
+            results.append({'type': 'tool_result', 'tool_use_id': block.id, 'content': json.dumps(data, default=str)[:20000]})
+            if label not in used:
+                used.append(label)
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
+    return results, used
+
+class Cancelled(RuntimeError):
+    pass
+
+def ask(conv_id, question, demo=False, progress=lambda step: None, cancelled=lambda: False):
     import anthropic
+    import settings
+    key, source = settings.key_for_use('anthropic')  # raises TrialExhausted when the free allowance is spent
+    if not key:
+        raise RuntimeError('Claude is not set up on this PC. Add an Anthropic key in Settings.')
     conv = CONVERSATIONS.get(conv_id)
-    if not conv['lock'].acquire(blocking=False):raise RuntimeError('PC Medic is still answering your previous question.')
+    if not conv['lock'].acquire(blocking=False):
+        raise RuntimeError('PC Medic is still answering your previous question.')
     try:
         if conv['turns'] >= MAX_TURNS:
             CONVERSATIONS.drop(conv['id']);conv = CONVERSATIONS.get(None);conv['lock'].acquire()
-        client = anthropic.Anthropic(timeout=150.0, max_retries=1)
+        client = anthropic.Anthropic(api_key=key, timeout=150.0, max_retries=2)  # the SDK retries 429, 5xx and connection errors
         messages = conv['messages']
         mark = len(messages)
         messages.append({'role': 'user', 'content': question})
-        tools_used, searches = [], 0
+        tools_used, searches, cache, started = [], 0, {}, time.monotonic()
         try:
             for step in range(MAX_STEPS + 1):
-                response = _create(client, messages, {'type': 'none'} if step == MAX_STEPS else None)
+                if cancelled():
+                    raise Cancelled('Cancelled. Nothing more was sent.')
+                final = step == MAX_STEPS or time.monotonic() - started > TURN_DEADLINE
+                progress('Claude is writing the answer…' if final else 'Claude is deciding what to check…' if step == 0 else 'Claude is reviewing the results…')
+                response = _create(client, messages, {'type': 'none'} if final else None)
                 messages.append({'role': 'assistant', 'content': response.content})
                 usage = getattr(response.usage, 'server_tool_use', None)
-                searches += getattr(usage, 'web_search_requests', 0) or 0
-                if response.stop_reason == 'pause_turn':continue
-                if response.stop_reason != 'tool_use':break
-                results = []
-                for block in response.content:
-                    if getattr(block, 'type', '') != 'tool_use':continue
-                    try:
-                        data, label = run_tool(block.name, block.input, demo)
-                        results.append({'type': 'tool_result', 'tool_use_id': block.id, 'content': json.dumps(data, default=str)[:20000]})
-                        if label not in tools_used:tools_used.append(label)
-                    except Exception as exc:
-                        results.append({'type': 'tool_result', 'tool_use_id': block.id, 'content': f'Tool failed: {type(exc).__name__}', 'is_error': True})
+                found = getattr(usage, 'web_search_requests', 0) or 0
+                if found:
+                    progress(f'Searched the web ({found})')
+                searches += found
+                if response.stop_reason == 'pause_turn':
+                    continue
+                if response.stop_reason != 'tool_use' or final:
+                    break
+                if cancelled():
+                    raise Cancelled('Cancelled. Nothing more was sent.')
+                calls = [b for b in response.content if getattr(b, 'type', '') == 'tool_use']
+                results, used = _run_tools(calls, demo, cache, progress)
+                tools_used += [u for u in used if u not in tools_used]
                 messages.append({'role': 'user', 'content': results})
         except BaseException:
-            # A half-finished tool exchange cannot be replayed; start this conversation over next time.
+            # A half-finished tool exchange cannot be replayed; keep the conversation as it was before this question.
             del messages[mark:]
             raise
         conv['turns'] += 1
-        if searches and LABELS['web_search'] not in tools_used:tools_used.append(LABELS['web_search'])
+        settings.record_use(source)
+        if searches and LABELS['web_search'] not in tools_used:
+            tools_used.append(LABELS['web_search'])
         answer, sources = _answer(response)
-        if response.stop_reason == 'refusal':answer = 'Claude declined to answer this question. Try rephrasing it, or use Offline mode.'
+        if response.stop_reason == 'refusal':
+            answer = 'Claude declined to answer this question. Try rephrasing it, or use Offline mode.'
         return {'conversation_id': conv['id'], 'answer': answer or 'Claude returned no answer.', 'tools_used': tools_used,
-                'sources': sources, 'search_count': searches, 'model': response.model}
+                'sources': sources, 'search_count': searches, 'model': response.model, 'trial': source == 'trial'}
     finally:
         conv['lock'].release()
+
+class Jobs:
+    """Questions run in the background so the page can show progress and cancel. Finished jobs are kept 10 minutes."""
+    def __init__(self):
+        self.items, self.lock = {}, threading.Lock()
+
+    def start(self, conv_id, question, demo=False):
+        job = {'id': secrets.token_urlsafe(12), 'status': 'running', 'steps': [], 'result': None, 'error': None,
+               'started': time.time(), 'cancel': False}
+        with self.lock:
+            for old in [k for k, v in self.items.items() if v['status'] != 'running' and time.time() - v['started'] > 600]:
+                del self.items[old]
+            self.items[job['id']] = job
+
+        def progress(step):
+            if not job['steps'] or job['steps'][-1] != step:
+                job['steps'].append(step)
+
+        def work():
+            try:
+                job['result'] = ask(conv_id, question, demo, progress, lambda: job['cancel'])
+                job['status'] = 'done'
+            except Cancelled as exc:
+                job['status'], job['error'] = 'cancelled', str(exc)
+            except Exception as exc:
+                job['status'], job['error'] = 'error', explain_error(exc)
+        threading.Thread(target=work, daemon=True).start()
+        return job['id']
+
+    def get(self, job_id):
+        job = self.items.get(job_id)
+        if not job:
+            return None
+        return {'id': job['id'], 'status': job['status'], 'steps': list(job['steps']), 'result': job['result'],
+                'error': job['error'], 'elapsed': round(time.time() - job['started'])}
+
+    def cancel(self, job_id):
+        job = self.items.get(job_id)
+        if job and job['status'] == 'running':
+            job['cancel'] = True
+        return bool(job)
+
+JOBS = Jobs()
 
 def explain_error(exc):
     """Plain-English message for a failed Claude request."""
@@ -202,7 +301,7 @@ def explain_error(exc):
         import anthropic
     except ImportError:
         return 'The anthropic Python package is not installed (run: pip install -r requirements.txt).'
-    if isinstance(exc, anthropic.AuthenticationError):return 'Anthropic rejected the API key. Check ANTHROPIC_API_KEY.'
+    if isinstance(exc, anthropic.AuthenticationError):return 'Anthropic rejected the API key. Check it in Settings.'
     if isinstance(exc, anthropic.PermissionDeniedError):return 'This Anthropic account cannot use this feature (web search may be disabled by an admin).'
     if isinstance(exc, anthropic.RateLimitError):return 'Anthropic rate limit reached. Try again in a minute.'
     if isinstance(exc, (anthropic.APITimeoutError, anthropic.APIConnectionError)):return 'Could not reach Anthropic. Check the internet connection and try again.'

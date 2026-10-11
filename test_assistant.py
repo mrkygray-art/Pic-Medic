@@ -29,9 +29,10 @@ class TestLoop(unittest.TestCase):
                 raise item
             return item
         self.client.beta.messages.create.side_effect = create
-        patcher = patch('anthropic.Anthropic', return_value=self.client)
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        for target, value in (('anthropic.Anthropic', self.client), ('settings.key_for_use', ('test-key', 'environment'))):
+            patcher = patch(target, return_value=value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
     def test_runs_requested_tools_then_answers(self):
         self.replies = [

@@ -13,8 +13,8 @@ class TestV16(unittest.TestCase):
         # Claude questions go through assistant.py; ai_engine is only the ChatGPT fallback.
         with self.assertRaises(ValueError):ai_engine.ask('claude','Why is memory high?',DEMO,True)
     def test_missing_key(self):
-        with patch.dict('os.environ',{},clear=True):
-            with self.assertRaisesRegex(RuntimeError,'OPENAI_API_KEY'):
+        with patch.dict('os.environ',{},clear=True),patch('settings.load_key',return_value=None):
+            with self.assertRaisesRegex(RuntimeError,'ChatGPT is not set up'):
                 ai_engine.ask('openai','Why is memory high?',DEMO,True)
     def test_provider_switch(self):
         with patch.dict('os.environ',{'OPENAI_API_KEY':'test-key'},clear=True):

@@ -28,6 +28,7 @@ from version import VERSION
 import local_security
 import socket
 import assistant
+import settings
 import report as tech_report
 
 BASE = Path(__file__).resolve().parent
@@ -38,6 +39,7 @@ DATA.mkdir(parents=True, exist_ok=True)
 SCAN = DATA / 'scan.json'
 HISTORY = DATA / 'scan_history.json'
 assistant.SCAN_PATH = str(SCAN)  # Claude's get_latest_health_check tool reads the same scan
+settings.DATA_FILE = str(DATA / 'settings.json')  # trial count and update preference
 HISTORY_LOCK = threading.Lock()
 LOCK = threading.Lock()
 TOKEN = secrets.token_urlsafe(32)
@@ -338,7 +340,15 @@ class Handler(BaseHTTPRequestHandler):
   if path=='/api/hardware-upgrade':
    try: return self.send_json({'hardware':hardware_inventory()})
    except Exception as exc: return self.send_json({'hardware':{'available':False,'reason':'Windows hardware collector encountered an error ('+type(exc).__name__+').'}},200)
-  if path=='/api/assistant-status':return self.send_json({'configured':assistant.configured(),'model':assistant.MODEL,'openai':bool(os.environ.get('OPENAI_API_KEY','').strip())})
+  if path=='/api/assistant-status':
+   info=settings.summary()
+   return self.send_json({'configured':info['providers']['anthropic']['available'],'openai':info['providers']['openai']['available'],'model':assistant.MODEL,'trial':info['trial'],
+                          'sources':{k:v['source'] for k,v in info['providers'].items()}})
+  if path=='/api/settings':return self.send_json(settings.summary())
+  if path=='/api/update-check':return self.send_json(settings.check_for_update())
+  if path=='/api/assistant/job':
+   job=assistant.JOBS.get((parse_qs(urlparse(self.path).query).get('id') or [''])[0])
+   return self.send_json(job) if job else self.send_json({'error':'Unknown or expired question'},404)
   if path=='/api/check':
    name=(parse_qs(urlparse(self.path).query).get('name') or [''])[0]
    if name not in system_checks.SCRIPTS:return self.send_json({'error':'Unknown check'},400)
@@ -463,10 +473,30 @@ class Handler(BaseHTTPRequestHandler):
    if body.get('consent') is not True:return self.send_json({'error':'Approval to share data with Claude is required'},403)
    question=body.get('question','')
    if not isinstance(question,str) or not 1<=len(question.strip())<=1000:return self.send_json({'error':'Question must be 1–1000 characters'},400)
-   if not assistant.configured():return self.send_json({'error':'Claude is not set up on this PC (no ANTHROPIC_API_KEY).'},503)
+   try:key,_=settings.key_for_use('anthropic')
+   except settings.TrialExhausted as exc:return self.send_json({'error':str(exc),'trial_exhausted':True},402)
+   if not key:return self.send_json({'error':'Claude is not set up on this PC. Add an Anthropic key in Settings.'},503)
    conv=body.get('conversation_id')
-   try:return self.send_json(assistant.ask(conv if isinstance(conv,str) and len(conv)<=40 else None,question.strip(),self.server.demo))
-   except Exception as exc:return self.send_json({'error':assistant.explain_error(exc)},502)
+   # Runs in the background; the page polls /api/assistant/job for progress and the answer.
+   return self.send_json({'job_id':assistant.JOBS.start(conv if isinstance(conv,str) and len(conv)<=40 else None,question.strip(),self.server.demo)})
+  if path=='/api/assistant/cancel':
+   return self.send_json({'cancelling':assistant.JOBS.cancel(str(body.get('job_id','')))})
+  if path=='/api/settings/key':
+   provider,key=body.get('provider'),str(body.get('key') or '').strip()
+   if provider not in settings.PROVIDERS:return self.send_json({'error':'Unknown provider'},400)
+   if os.name!='nt':return self.send_json({'error':'Saving keys needs Windows Credential Manager'},400)
+   try:
+    settings.verify_key(provider,key)
+    settings.save_key(provider,key)
+   except (ValueError,RuntimeError,OSError) as exc:return self.send_json({'error':str(exc)},400)
+   return self.send_json({'saved':True,'settings':settings.summary()})
+  if path=='/api/settings/key-remove':
+   if body.get('provider') not in settings.PROVIDERS:return self.send_json({'error':'Unknown provider'},400)
+   settings.delete_key(body['provider'])
+   return self.send_json({'removed':True,'settings':settings.summary()})
+  if path=='/api/settings/updates':
+   settings.set_update_checks(body.get('enabled') is True)
+   return self.send_json({'settings':settings.summary()})
   if path in ('/api/parts-research','/api/parts-research-preview'):
    fields={k:body.get(k,'') for k in ('kind','manufacturer','model','product_name','part_number','details')}
    try:
