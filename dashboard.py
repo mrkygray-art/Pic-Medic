@@ -24,6 +24,7 @@ from performance_diagnostics import collect_performance, summarize
 from storage_explorer import inventory, recycle
 from device_diagnostics import inventory as device_inventory
 import system_checks
+import assistant
 
 BASE = Path(__file__).resolve().parent
 FROZEN = getattr(sys, 'frozen', False)
@@ -333,6 +334,7 @@ class Handler(BaseHTTPRequestHandler):
   if path=='/api/hardware-upgrade':
    try: return self.send_json({'hardware':hardware_inventory()})
    except Exception as exc: return self.send_json({'hardware':{'available':False,'reason':'Windows hardware collector encountered an error ('+type(exc).__name__+').'}},200)
+  if path=='/api/assistant-status':return self.send_json({'configured':assistant.configured(),'model':assistant.MODEL})
   if path=='/api/check':
    name=(parse_qs(urlparse(self.path).query).get('name') or [''])[0]
    if name not in system_checks.SCRIPTS:return self.send_json({'error':'Unknown check'},400)
@@ -440,6 +442,14 @@ class Handler(BaseHTTPRequestHandler):
     result=ai_ask(provider,question,current_report,self.server.demo,body.get('tool_approved') is True,investigation)
     return self.send_json(result)
    except (RuntimeError,ValueError,OSError) as exc:return self.send_json({'error':str(exc)},502)
+  if path=='/api/assistant':
+   if body.get('consent') is not True:return self.send_json({'error':'Approval to share data with Claude is required'},403)
+   question=body.get('question','')
+   if not isinstance(question,str) or not 1<=len(question.strip())<=1000:return self.send_json({'error':'Question must be 1–1000 characters'},400)
+   if not assistant.configured():return self.send_json({'error':'Claude is not set up on this PC (no ANTHROPIC_API_KEY).'},503)
+   conv=body.get('conversation_id')
+   try:return self.send_json(assistant.ask(conv if isinstance(conv,str) and len(conv)<=40 else None,question.strip(),self.server.demo))
+   except Exception as exc:return self.send_json({'error':assistant.explain_error(exc)},502)
   if path in ('/api/parts-research','/api/parts-research-preview'):
    fields={k:body.get(k,'') for k in ('kind','manufacturer','model','product_name','part_number','details')}
    try:

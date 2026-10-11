@@ -99,6 +99,23 @@ class TestOneDiagnosticAtATime(LocalServer):
         self.assertEqual(self.call('/api/activity', {'action': 'start', 'kind': 'reboot', 'owner': self.A})[0], 400)
 
 
+class TestAssistantEndpoint(LocalServer):
+    def test_requires_consent(self):
+        self.assertEqual(self.call('/api/assistant', {'question': 'hi'})[0], 403)
+
+    def test_not_configured_is_explicit(self):
+        with patch.dict('os.environ', {}, clear=True):
+            status, body = self.call('/api/assistant', {'question': 'hi', 'consent': True})
+            self.assertEqual(status, 503)
+            self.assertIn('not set up', body['error'])
+            self.assertFalse(self.call('/api/assistant-status')[1]['configured'])
+
+    def test_failures_become_plain_messages(self):
+        with patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'k'}), patch('assistant.ask', side_effect=RuntimeError('PC Medic is still answering your previous question.')):
+            status, body = self.call('/api/assistant', {'question': 'hi', 'consent': True})
+        self.assertEqual((status, body['error']), (502, 'PC Medic is still answering your previous question.'))
+
+
 class TestPackagedCollector(unittest.TestCase):
     def test_source_run_uses_collector_script(self):
         with patch('dashboard.FROZEN', False):
