@@ -1,6 +1,6 @@
 # PC Medic AI changelog
 
-## Unreleased
+## 1.20.0 (2026-10-11)
 
 - **Diagnostic coordinator** (`coordinator.py`, `POST /api/coordinate`): describe a problem ("my computer keeps freezing", "my PC restarts randomly", "it gets really hot", "Wi-Fi keeps dropping", "Chrome keeps crashing", "battery drains fast") and PC Medic runs an investigation:
   - it picks a playbook and runs that playbook's read-only routines in parallel (about 3–5 seconds);
