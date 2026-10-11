@@ -42,8 +42,10 @@ def computer_section(overview):
     cpu = overview.get('processor') or {}
     ram = '; '.join(f'{m.get("size_gb")} GB {m.get("speed_mts") or "?"} MT/s ({m.get("part_number") or "part unknown"})' for m in overview.get('ram_modules') or [])
     drives = '; '.join(f'{d.get("model")} ({d.get("size_gb")} GB)' for d in overview.get('drives') or [])
+    kind = {'laptop': 'Laptop', 'desktop': 'Desktop', 'all-in-one': 'All-in-one desktop', 'virtual': 'Virtual machine'}.get(overview.get('device_type'))
+    if kind and overview.get('identified_by') == 'motherboard':kind += ' (custom-built, identified by its motherboard)'
     return '<table>' + _rows([
-        ('Manufacturer', overview.get('manufacturer')), ('Model', ' '.join(x for x in (overview.get('product_name'), overview.get('model')) if x)),
+        ('Type', kind), ('Manufacturer', overview.get('manufacturer')), ('Model', ' '.join(x for x in (overview.get('product_name'), overview.get('model')) if x)),
         ('Windows', ' '.join(str(x) for x in (win.get('Caption'), f'(build {win.get("BuildNumber")})' if win.get('BuildNumber') else '') if x)),
         ('Processor', f'{cpu.get("Name")} · {cpu.get("NumberOfCores")} cores / {cpu.get("NumberOfLogicalProcessors")} threads' if cpu.get('Name') else None),
         ('Memory', f'{overview.get("ram_total_gb")} GB total' + (f' · {ram}' if ram else '')),

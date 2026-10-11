@@ -31,6 +31,11 @@
 - **Claude investigation mode** (`assistant.py`, `POST /api/assistant`). An "Answer with: Offline | Claude" switch, with Offline as the default. Claude (`claude-opus-5-5`, override with `PCMEDIC_ASSISTANT_MODEL`) chooses among read-only tools: computer overview, a system check, recent errors, performance snapshot, network status and web search. Conversations are held on the server, so follow-ups keep context. Consent is asked once per page session. Offline fallbacks (howto, clarify) offer "Ask Claude instead". A live test cost about $0.10–0.25 per question.
 - **Technician report** (`report.py`, `POST /api/technician-report`). One printable HTML page with computer details, Health Check findings, current checks, recent errors, the session's questions and answers, and editable technician notes. Print / Save as PDF. All text is HTML-escaped.
 
+## Laptops, desktops and shared computers
+- **Computer type.** `hardware_advisor.identify()` reads the chassis type and `PCSystemType` and sets `DeviceType`: laptop, desktop, all-in-one, virtual or unknown. On desktops, charger questions get power-supply guidance and research, battery questions explain the CR2032 coin cell, and graphics and storage advice covers PCIe cards and drive bays. Claude and the technician report also see the type.
+- **Custom-built PCs.** When the manufacturer or model is a placeholder ("To Be Filled By O.E.M.", "System Product Name"), the motherboard becomes the identity (`IdentitySource: motherboard`). Parts research accepts maker names with commas and knows the Gigabyte, ASRock and Biostar sites.
+- **One Windows account only** (`local_security.py`). Each request's connection is matched to its process through Windows' TCP table, and that process's account must match the server's. Anything unverifiable is refused. The server binds its port exclusively, so no other account can bind on top of it, and moves to the next free port if 8765 is taken.
+
 ## Tests
 `python -m unittest discover -p "test_*.py"` runs the full suite (about 70 tests): the handoff acceptance table, research labels and citations (Claude mocked, no cost), the no-key behavior, HTTP contracts, foreign-host rejection, the cross-window lock and collector mode.
 

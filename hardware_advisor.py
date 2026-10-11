@@ -13,9 +13,10 @@ $video=@(Get-CimInstance Win32_VideoController | Select-Object Name,AdapterRAM,D
 $monitors=@(Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorID | ForEach-Object { [pscustomobject]@{Manufacturer=([Text.Encoding]::ASCII.GetString([byte[]]($_.ManufacturerName | Where-Object {$_ -gt 0})));Model=([Text.Encoding]::ASCII.GetString([byte[]]($_.UserFriendlyName | Where-Object {$_ -gt 0}))) } })
 $drives=@(Get-CimInstance Win32_DiskDrive | Select-Object Model,MediaType,Size,InterfaceType)
 $product=Get-CimInstance Win32_ComputerSystemProduct
+$chassis=@((Get-CimInstance Win32_SystemEnclosure).ChassisTypes)
 # Battery Name is the OEM battery model (e.g. Lenovo L22D4PA0); DeviceID is omitted because it embeds a serial.
 $battery=@(Get-CimInstance Win32_Battery | Select-Object -ExpandProperty Name)
-[pscustomobject]@{Manufacturer=$sys.Manufacturer;Model=$sys.Model;ProductName=$product.Version;BatteryModels=$battery;SystemType=$sys.SystemType;TotalPhysicalMemory=$sys.TotalPhysicalMemory;BoardManufacturer=$board.Manufacturer;BoardProduct=$board.Product;BIOSVersion=$bios.SMBIOSBIOSVersion;Modules=$sticks;Arrays=$arrays;Video=$video;Monitors=$monitors;Drives=$drives} | ConvertTo-Json -Depth 6 -Compress
+[pscustomobject]@{Manufacturer=$sys.Manufacturer;Model=$sys.Model;PCSystemType=$sys.PCSystemType;ChassisTypes=$chassis;ProductName=$product.Version;BatteryModels=$battery;SystemType=$sys.SystemType;TotalPhysicalMemory=$sys.TotalPhysicalMemory;BoardManufacturer=$board.Manufacturer;BoardProduct=$board.Product;BIOSVersion=$bios.SMBIOSBIOSVersion;Modules=$sticks;Arrays=$arrays;Video=$video;Monitors=$monitors;Drives=$drives} | ConvertTo-Json -Depth 6 -Compress
 '''
 
 def clean_product_name(value):
@@ -24,6 +25,37 @@ def clean_product_name(value):
  if not text or not re.search(r'[A-Za-z]',text) or re.search(r'to be filled|system version|default string|not applicable|^none$|^n/?a$',text,re.I):return ''
  return text[:60]
 
+# SMBIOS chassis types (Win32_SystemEnclosure) and Win32_ComputerSystem.PCSystemType values.
+LAPTOP_CHASSIS={8,9,10,11,12,14,18,21,30,31,32}
+DESKTOP_CHASSIS={3,4,5,6,7,15,16,24,35,36}
+ALL_IN_ONE_CHASSIS={13}
+PLACEHOLDER=re.compile(r'to be filled|system manufacturer|system product name|default string|not applicable|^o\.?e\.?m\.?$|^none$|^n/?a$|^x+\.?x*$|^\s*$',re.I)
+VIRTUAL=re.compile(r'virtual|vmware|virtualbox|kvm|qemu|hyper-v|parallels',re.I)
+
+def is_placeholder(value):
+ return bool(PLACEHOLDER.search(str(value or '').strip()))
+
+def identify(d):
+ """Set DeviceType and, for custom-built PCs with placeholder names, identify the PC by its motherboard."""
+ chassis={c for c in (d.get('ChassisTypes') or []) if isinstance(c,int)} if isinstance(d.get('ChassisTypes'),list) else ({d['ChassisTypes']} if isinstance(d.get('ChassisTypes'),int) else set())
+ pc_type=d.get('PCSystemType')
+ if VIRTUAL.search(' '.join(str(d.get(k) or '') for k in ('Manufacturer','Model'))):kind='virtual'
+ elif pc_type==2 or chassis&LAPTOP_CHASSIS:kind='laptop'
+ elif chassis&ALL_IN_ONE_CHASSIS:kind='all-in-one'
+ elif pc_type in (1,3) or chassis&DESKTOP_CHASSIS:kind='desktop'
+ else:kind='laptop' if d.get('BatteryModels') else 'unknown'
+ d['DeviceType']=kind
+ d['IdentitySource']='system'
+ if is_placeholder(d.get('Manufacturer')) or is_placeholder(d.get('Model')):
+  board_make,board_model=str(d.get('BoardManufacturer') or '').strip(),str(d.get('BoardProduct') or '').strip()
+  d['ReportedManufacturer'],d['ReportedModel']=d.get('Manufacturer'),d.get('Model')
+  if board_make and board_model and not is_placeholder(board_make) and not is_placeholder(board_model):
+   # Custom-built PCs: the motherboard is the part that decides RAM, storage and CPU compatibility.
+   d['Manufacturer'],d['Model'],d['IdentitySource']=board_make,board_model,'motherboard'
+  else:
+   d['IdentitySource']='unknown'
+ return d
+
 def inventory():
  if os.name!='nt': return {'available':False,'reason':'Hardware inventory requires Windows.'}
  try:
@@ -31,6 +63,7 @@ def inventory():
   if proc.returncode or not proc.stdout.strip(): return {'available':False,'reason':'Windows could not provide hardware inventory.'}
   d=json.loads(proc.stdout.lstrip('\ufeff').strip()); d['available']=True
   d['ProductName']=clean_product_name(d.get('ProductName'))
+  identify(d)
   d['RamSummary']=ram_summary(d)
   batteries=d.get('BatteryModels') or []
   d['BatteryModels']=[str(b).strip() for b in (batteries if isinstance(batteries,list) else [batteries]) if str(b).strip()][:2]

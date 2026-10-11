@@ -24,6 +24,8 @@ from performance_diagnostics import collect_performance, summarize
 from storage_explorer import inventory, recycle
 from device_diagnostics import inventory as device_inventory
 import system_checks
+import local_security
+import socket
 import assistant
 import report as tech_report
 
@@ -317,17 +319,43 @@ def disk_forecast(records):
  if days>365:return {'status':'stable','message':'Free-space decline is too gradual for a useful short-term forecast.'}
  return {'status':'estimate','days_until_full':round(days),'free_pct':round(y[-1],1),'pct_points_per_day':round(slope,2),'message':'Rough linear estimate based on scan history, not a guarantee.'}
 
+OTHER_ACCOUNT='This copy of PC Medic belongs to another Windows account signed in on this computer. Start PC Medic from your own account; it will use its own private address.'
+
+class LocalServer(ThreadingHTTPServer):
+ """Exclusive port: Windows' SO_REUSEADDR would let another account bind the same port and intercept requests."""
+ allow_reuse_address=False
+ def server_bind(self):
+  if hasattr(socket,'SO_EXCLUSIVEADDRUSE'):self.socket.setsockopt(socket.SOL_SOCKET,socket.SO_EXCLUSIVEADDRUSE,1)
+  super().server_bind()
+
+def start_server(port,tries=10):
+ """Bind the first free port from `port`, so a second account's copy does not collide with the first."""
+ for candidate in range(port,port+tries):
+  try:return LocalServer(('127.0.0.1',candidate),Handler)
+  except OSError:continue
+ raise OSError(f'No free port between {port} and {port+tries-1}')
+
 class Handler(BaseHTTPRequestHandler):
  def local_origins(self):
   port=self.server.server_address[1]
   return (f'127.0.0.1:{port}',f'localhost:{port}')
  def foreign_request(self):
-  """Block DNS rebinding: a hostile site resolved to 127.0.0.1 still sends its own Host and Origin."""
-  if self.headers.get('Host','').lower() not in self.local_origins():return True
+  """Why this request must be refused, or None. Blocks DNS rebinding and other Windows accounts."""
+  # A hostile site resolved to 127.0.0.1 still sends its own Host and Origin.
+  if self.headers.get('Host','').lower() not in self.local_origins():return 'Requests must come from PC Medic on this computer'
   origin=self.headers.get('Origin')
-  return bool(origin) and origin.lower() not in tuple('http://'+x for x in self.local_origins())
+  if origin and origin.lower() not in tuple('http://'+x for x in self.local_origins()):return 'Requests must come from PC Medic on this computer'
+  # On a shared PC every signed-in account can reach 127.0.0.1; only the account that started PC Medic may use it.
+  if not local_security.same_user(self.client_address,self.server.server_address[1]):return OTHER_ACCOUNT
+  return None
+ def refuse(self,reason):
+  if urlparse(self.path).path=='/':
+   page=f'<!doctype html><meta charset=utf-8><title>PC Medic</title><p style="font:16px system-ui;max-width:560px;margin:60px auto">{reason}</p>'.encode()
+   self.send_response(403);self.send_header('Content-Type','text/html; charset=utf-8');self.send_header('Content-Length',str(len(page)));self.end_headers();return self.wfile.write(page)
+  return self.send_json({'error':reason},403)
  def do_GET(self):
-  if self.foreign_request():return self.send_json({'error':'Requests must come from PC Medic on this computer'},403)
+  reason=self.foreign_request()
+  if reason:return self.refuse(reason)
   path=urlparse(self.path).path
   if path=='/': return self.send_file(BASE/'dashboard.html','text/html; charset=utf-8')
   if path=='/api/network-info':
@@ -355,7 +383,8 @@ class Handler(BaseHTTPRequestHandler):
   return self.send_json({'error':'Not found'},404)
  def do_POST(self):
   path=urlparse(self.path).path
-  if self.foreign_request():return self.send_json({'error':'Requests must come from PC Medic on this computer'},403)
+  reason=self.foreign_request()
+  if reason:return self.refuse(reason)
   if self.headers.get('X-PC-Medic-Token')!=TOKEN: return self.send_json({'error':'Invalid request token'},403)
   try:
    n=int(self.headers.get('Content-Length','0'))
@@ -520,8 +549,10 @@ def main():
   sys.argv=[sys.argv[0]]+sys.argv[2:]
   return collector.main()
  p=argparse.ArgumentParser();p.add_argument('--demo',action='store_true');p.add_argument('--port',type=int,default=8765);a=p.parse_args()
- server=ThreadingHTTPServer(('127.0.0.1',a.port),Handler);server.demo=a.demo
- print(f'PC Medic AI 1.16.15: http://127.0.0.1:{a.port} ({"SIMULATED DEMO" if a.demo else "LOCAL SCAN"})',flush=True)
+ server=start_server(a.port);server.demo=a.demo
+ port=server.server_address[1]
+ if port!=a.port:print(f'Port {a.port} is in use (perhaps PC Medic in another Windows account), so this copy uses {port}.',flush=True)
+ print(f'PC Medic AI 1.16.15: http://127.0.0.1:{port} ({"SIMULATED DEMO" if a.demo else "LOCAL SCAN"})',flush=True)
  print('Diagnostics are read-only. Storage Explorer can move explicitly selected personal files to Recycle Bin. Ctrl+C to stop.',flush=True)
  try:server.serve_forever()
  except KeyboardInterrupt:pass

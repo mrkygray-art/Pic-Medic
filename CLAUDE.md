@@ -22,6 +22,8 @@ A local Windows diagnostic assistant for **laptops and desktops** running Window
 - Claude mode (`assistant.py`): tools must stay read-only and allowlisted in `run_tool`. Anything sent to Claude goes through minimizers (`system_checks.for_cloud`, `computer_overview`). Never add process or app names, serials, user names, paths, IPs or MACs. Keep the conversation history append-only (thinking blocks are replayed unchanged); on failure, roll back the whole turn.
 - New read-only checks go in `system_checks.SCRIPTS` with `describe()` and `for_cloud()` handling. Routing goes in the `checks` list in `intent_engine.classify`.
 - Windows PowerShell 5 encodes dates in JSON as `/Date(ms)/`; use `event_log_analyzer.event_time()` or emit `.ToString('s')` in the script.
+- Every request passes `local_security.same_user()` (the connecting process must run as the same Windows account). Don't add endpoints that bypass `Handler.foreign_request()`.
+- Advice that depends on hardware must check `DeviceType` (laptop, desktop, all-in-one, virtual, unknown) and `IdentitySource` (system, motherboard, unknown) from `hardware_advisor.identify()`.
 - Keep the existing layout. Output goes in the central assessment box (`#symptom`), with status in `#assistant-status`.
 
 ## Style

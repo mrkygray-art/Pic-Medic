@@ -90,8 +90,24 @@ function hardwareQuestion(text){return /\b(ram|memory|upgrade|add more|install m
 function hardwareKind(text){if(/\b(vram|video memory|graphics memory|gpu memory)\b/i.test(text))return 'video';if(/\b(ssd|hard drive|disk space|storage space|storage|drive space)\b/i.test(text))return 'storage';if(/\b(ram|memory module|memory stick|ddr|dimm)\b/i.test(text))return 'ram';return 'ambiguous'}
 async function answerHardwareQuestion(text,kind){
  const intro='Your question: '+text+'\n\n';
- if(kind==='video'){$('symptom').value=intro+'Graphics memory (VRAM) is usually built into the graphics card or shared with system RAM. It generally cannot be upgraded separately. PC Medic can check your graphics adapter, but upgrade options depend on the exact PC model and GPU. No performance watch is needed.';showResearchOffer('graphics',text,'Graphics adapter and OEM model require verification');return;}
- if(kind==='storage'){$('symptom').value=intro+'You mean storage space for files and applications, rather than RAM. Storage upgrades depend on the exact PC model, free drive bays and supported SSD interfaces. A performance watch is not needed. Check Storage Explorer for available capacity, then verify the model’s drive compatibility before purchasing.';showResearchOffer('SSD/storage',text,'Model must be verified against OEM service manual');return;}
+ if(kind==='video'||kind==='storage'){
+  // Upgrade options differ by computer type: desktops take new graphics cards and extra drives; most laptops cannot change graphics.
+  $('symptom').value=intro+'PC Medic is reading local hardware…';
+  let d={};try{d=(await getJSON('/api/hardware-upgrade')).hardware||{}}catch(e){}
+  const desktop=d.DeviceType==='desktop',type=d.DeviceType?deviceLabel(d)+(d.Manufacturer?': '+computerName(d):''):'';
+  if(kind==='video'){
+   const cards=arr(d.Video).map(x=>x.Name).filter(Boolean).join(', ');
+   $('symptom').value=intro+(type?type+'\n\n':'')+(cards?'Graphics adapters: '+cards+'\n\n':'')+(desktop
+    ?'On a desktop the graphics card can usually be replaced or added. Before buying, check that the PC has a free PCIe x16 slot, that the card fits the case length, and that the power supply has enough wattage and the right power connectors. Graphics memory (VRAM) comes with the card; it cannot be upgraded separately.'
+    :'Graphics memory (VRAM) is built into the graphics chip or shared with system RAM, and on almost all laptops the graphics chip is soldered to the motherboard. Upgrading graphics usually means a new computer, or an external graphics enclosure if the laptop has a Thunderbolt or USB4 port.');
+   showResearchOffer(desktop?'graphics card':'graphics',text,'Graphics adapter and model require verification');return;
+  }
+  const drives=arr(d.Drives).map(x=>(x.Model||'Unknown drive')+(x.Size?' ('+(Number(x.Size)/1e9).toFixed(0)+' GB)':'')).join(', ');
+  $('symptom').value=intro+(type?type+'\n\n':'')+(drives?'Installed drives: '+drives+'\n\n':'')+(desktop
+   ?'Desktops usually have room for more storage: M.2 slots on the motherboard for fast NVMe SSDs, and 2.5" or 3.5" SATA bays for SSDs and hard drives. Check the motherboard or PC manual for free M.2 slots and SATA ports, and whether you need a SATA cable.'
+   :'Laptop storage upgrades depend on the exact model: some have a second M.2 slot, others only allow replacing the existing drive. Check the manufacturer specifications for free M.2 slots and supported sizes (2230, 2242 or 2280).')+'\n\nCheck Storage Explorer for how much space is in use. No performance watch is needed.';
+  showResearchOffer('SSD/storage',text,'Model must be verified against the manufacturer specifications');return;
+ }
  $('assistant-status').textContent='Checking Windows manufacturer, model, installed RAM modules and reported slots. No performance watch is needed.';
  $('symptom').value=intro+'PC Medic is reading local hardware specifications…';
  try{const result=await getJSON('/api/hardware-upgrade');const d=result.hardware||{};const modules=Array.isArray(d.Modules)?d.Modules:d.Modules?[d.Modules]:[];const total=Number(d.TotalPhysicalMemory);const lines=[`Computer: ${d.Manufacturer||'Unknown'} ${d.Model||'Unknown'}`,Number.isFinite(total)&&total>0?`Installed RAM: ${(total/1073741824).toFixed(1)} GB`:'Installed RAM: unavailable'];
@@ -199,7 +215,10 @@ function researchDetails(kind,hw){
  return text.replace(/[^\w .,:;+\-\/()]/g,'').replace(/\s+/g,' ').trim().slice(0,200);
 }
 function researchFields(kind,hw){return {kind,manufacturer:String(hw.Manufacturer||'').trim(),model:String(hw.Model||'').trim(),product_name:String(hw.ProductName||'').trim(),part_number:/battery/i.test(kind)?String((hw.BatteryModels||[])[0]||'').trim():'',details:researchDetails(kind,hw)}}
-function computerName(hw){return [hw.Manufacturer,hw.ProductName,hw.Model].map(x=>String(x||'').trim()).filter(Boolean).join(' ')||'Unknown computer'}
+function computerName(hw){const name=[hw.Manufacturer,hw.ProductName,hw.Model].map(x=>String(x||'').trim()).filter(Boolean).join(' ')||'Unknown computer';return hw.IdentitySource==='motherboard'?name+' (custom-built PC, identified by its motherboard)':name}
+// hardware_advisor.identify() sets DeviceType from the chassis; advice differs for laptops and desktops.
+const DEVICE_LABELS={laptop:'Laptop',desktop:'Desktop','all-in-one':'All-in-one desktop',virtual:'Virtual machine',unknown:'Not reported'};
+function deviceLabel(hw){return DEVICE_LABELS[hw.DeviceType]||'Not reported'}
 async function prepareUpgradeResearch(){
  if(!pendingResearch)return;
  const r=pendingResearch,buttons=[...document.querySelectorAll('#research-choices button')];
@@ -261,10 +280,17 @@ async function investigateReplacementCharger(question){
   if(!d.available)throw Error(d.reason||'Windows did not return a model');
   const make=String(d.Manufacturer||'Unknown').trim(),model=String(d.Model||'Unknown').trim(),name=computerName(d);
   const evidence=`Manufacturer: ${make}; computer model: ${model}; system type: ${d.SystemType||'unknown'}; motherboard: ${d.BoardProduct||'unknown'}`;
-  const lines=[`Your question: ${question}`,`Computer identified: ${name}`,'A replacement charger must match the exact laptop configuration, connector type, supported voltage and required wattage. USB-C charging support cannot be assumed from the presence of a USB-C port.','Windows does not reliably report the original charger manufacturer part number, wattage, or connector. PC Medic will not guess.','Next: verify the exact machine type/model (MTM) and OEM charger specification against the manufacturer support/parts catalog. A photo of the old charger label or the full model number can help.','Would you like to research a compatible replacement online? You can choose Claude or OpenAI and review what is shared. Those APIs may not have live web search; unverified part numbers, prices, and store listings must not be presented as facts.'];
+  if(d.DeviceType==='virtual'){$('symptom').value=`Your question: ${question}\n\nThis is a virtual machine, so it has no charger or power supply of its own. Power questions apply to the computer that runs it.`;$('assistant-status').textContent='Virtual machine identified · Offline.';return;}
+  if(d.DeviceType==='desktop'){
+   $('symptom').value=[`Your question: ${question}`,`Computer identified: ${name}`+(d.IdentitySource==='motherboard'?'':' (desktop)'),'Desktops do not use a charger. Power comes from a power supply unit (PSU) inside the case, connected to the wall by a standard power cord.','If the PC will not turn on, first try a different power cord and outlet: the cord is a cheap, standard part. A replacement power supply must fit the case and provide enough wattage and the right connectors for the graphics card. Branded desktops (Dell, HP, Lenovo) often use a model-specific power supply.','Would you like to research a replacement power supply online?'].join('\n\n');
+   $('assistant-status').textContent='Desktop identified · Power supply guidance · No scan or cloud request started.';
+   showResearchOffer('replacement power supply (PSU)',question,evidence);return;
+  }
+  const adapter=d.DeviceType==='all-in-one'?'power adapter':'charger';
+  const lines=[`Your question: ${question}`,`Computer identified: ${name}`,`A replacement ${adapter} must match the exact computer configuration, connector type, supported voltage and required wattage. USB-C charging support cannot be assumed from the presence of a USB-C port.`,`Windows does not reliably report the original ${adapter}'s part number, wattage or connector. PC Medic will not guess.`,`Next: verify the exact machine type/model and the manufacturer's ${adapter} specification. A photo of the old ${adapter}'s label or the full model number helps.`,'Would you like to research a compatible replacement online?'];
   $('symptom').value=lines.join('\n\n');
   $('assistant-status').textContent='Charger investigation ready · Manufacturer/model identified · No scan or cloud request started.';
-  showResearchOffer('replacement laptop charger',question,evidence+'; verify OEM FRU/part number, connector, voltage, watts; search manufacturer, CDW, Amazon, Micro Center');
+  showResearchOffer(d.DeviceType==='all-in-one'?'replacement power adapter':'replacement laptop charger',question,evidence+'; verify OEM FRU/part number, connector, voltage, watts; search manufacturer, CDW, Amazon, Micro Center');
  }catch(e){$('symptom').value='Your question: '+question+'\n\nI could not identify this laptop: '+e.message+'\nPlease supply the exact model or check System Information. I will not guess at a replacement charger.';$('assistant-status').textContent='Hardware identification unavailable.';}
 }
 async function investigateReplacementPart(question,kind){
@@ -274,6 +300,11 @@ async function investigateReplacementPart(question,kind){
   const result=await getJSON('/api/hardware-upgrade'),d=result.hardware||{};
   if(!d.available)throw Error(d.reason||'Hardware inventory unavailable');
   const make=String(d.Manufacturer||'Unknown').trim(),model=String(d.Model||'Unknown').trim();
+  if(d.DeviceType==='desktop'||d.DeviceType==='all-in-one'||d.DeviceType==='virtual'){
+   $('symptom').value='Your question: '+question+'\n\nComputer identified: '+computerName(d)+(d.IdentitySource==='motherboard'?'':' ('+deviceLabel(d).toLowerCase()+')')+'\n\n'+(d.DeviceType==='virtual'?'This is a virtual machine, so it has no battery.':'This computer has no main battery. The only battery inside is a small coin cell on the motherboard, usually a CR2032, which keeps the clock and BIOS settings while the PC is unplugged.\n\nSigns it is running out: the date and time reset after the PC is unplugged, or BIOS settings return to defaults. CR2032 cells are sold in most supermarkets and pharmacies. Confirm the type in the motherboard or service manual before replacing it.');
+   $('assistant-status').textContent=deviceLabel(d)+' identified · Offline · No online research needed.';
+   return;
+  }
   const battery=(d.BatteryModels||[])[0];
   $('symptom').value='Your question: '+question+'\n\nComputer identified: '+computerName(d)+'\n\n'+(battery?'Windows reports the installed battery model as '+battery+'. That is the manufacturer battery part number to match; confirm it on the battery label if you can. Some models accept more than one battery part number, so the manufacturer parts list is the final word.':'Windows did not report a battery model. PC Medic needs the exact manufacturer battery FRU/part number to search reliably.')+'\n\nWould you like to search online for manufacturer and retailer candidates? No part will be marked verified based on a search title alone.';
   $('assistant-status').textContent='Battery investigation ready · Online research optional.';
@@ -328,7 +359,7 @@ async function answerInventoryQuestion(question){
  const result=await getJSON('/api/hardware-upgrade');const d=result.hardware||{};
  if(!d.available){$('symptom').value='Your question: '+question+'\n\nHardware inventory unavailable: '+(d.reason||'Unknown error');return;}
  const arr=x=>Array.isArray(x)?x:x?[x]:[];const q=question.toLowerCase();let lines=['Your question: '+question,'Computer: '+(d.Manufacturer||'Unknown')+' '+(d.Model||'Unknown')];
- if(/\b(model|manufacturer|make|what.*computer|what.*pc|which.*computer|which.*pc|system information|specs|specifications)\b/.test(q)){lines.push('Manufacturer: '+(d.Manufacturer||'Not reported'));lines.push('Model: '+(d.Model||'Not reported'));lines.push('System type: '+(d.SystemType||'Not reported'));lines.push('Motherboard: '+(d.BoardManufacturer||'Unknown')+' '+(d.BoardProduct||''));lines.push('BIOS: '+(d.BIOSVersion||'Not reported'));} else if(/display|monitor|screen/.test(q)){const mons=arr(d.Monitors);lines.push('Detected displays: '+(mons.length?mons.map(x=>(x.Manufacturer||'')+' '+(x.Model||'Unknown display')).join('; '):'Windows did not expose a monitor model.'));lines.push('Note: a built-in laptop screen or an adapter may not expose its exact panel model.');}
+ if(/\b(model|manufacturer|make|what.*computer|what.*pc|which.*computer|which.*pc|system information|specs|specifications)\b/.test(q)){lines.push('Type: '+deviceLabel(d));if(d.IdentitySource==='motherboard')lines.push('This looks like a custom-built PC: Windows reports placeholder names ("'+(d.ReportedManufacturer||'')+'"), so PC Medic identifies it by its motherboard.');else if(d.IdentitySource==='unknown')lines.push('Windows reports placeholder names for this computer and its motherboard, so the exact model cannot be identified from Windows.');lines.push('Manufacturer: '+(d.Manufacturer||'Not reported'));lines.push('Model: '+(d.Model||'Not reported'));lines.push('System type: '+(d.SystemType||'Not reported'));lines.push('Motherboard: '+(d.BoardManufacturer||'Unknown')+' '+(d.BoardProduct||''));lines.push('BIOS: '+(d.BIOSVersion||'Not reported'));} else if(/display|monitor|screen/.test(q)){const mons=arr(d.Monitors);lines.push('Detected displays: '+(mons.length?mons.map(x=>(x.Manufacturer||'')+' '+(x.Model||'Unknown display')).join('; '):'Windows did not expose a monitor model.'));lines.push('Note: a built-in laptop screen or an adapter may not expose its exact panel model.');}
  else if(/video|graphics|gpu|vram/.test(q)){const cards=arr(d.Video);lines.push('Graphics adapters: '+(cards.length?cards.map(x=>(x.Name||'Unknown GPU')+' (driver '+(x.DriverVersion||'unknown')+')').join('; '):'Not reported'));lines.push('Reported video memory may be inaccurate on shared-memory GPUs.');}
  else if(/ssd|storage|hard drive|disk/.test(q)){const disks=arr(d.Drives);lines.push('Installed physical drives: '+(disks.length?disks.map(x=>(x.Model||'Unknown')+' · '+(x.Size?(Number(x.Size)/1e9).toFixed(0)+' GB':'capacity unknown')+' · '+(x.InterfaceType||'interface unknown')).join('; '):'Not reported'));lines.push('Physical upgrade fit, free slots and supported drive types require the model service manual.');}
  else if(/processor|cpu/.test(q)){lines.push('Windows can identify the processor through System Details. For a CPU upgrade, verify the exact motherboard and BIOS support.');}
@@ -438,7 +469,7 @@ async function startGuidedDiagnosis(){
  if(intent==='hardware_inventory'){await answerInventoryQuestion(userSymptom);return;}
  if(intent==='memory_clarify'){showMemoryClarification(userSymptom);return;}
  if(intent==='ram_upgrade'){await answerHardwareQuestion(userSymptom,'ram');return;}
- if(intent==='storage_upgrade'||intent==='graphics_upgrade'){await answerInventoryQuestion(userSymptom);return;}
+ if(intent==='storage_upgrade'||intent==='graphics_upgrade'){await answerHardwareQuestion(userSymptom,intent==='storage_upgrade'?'storage':'video');return;}
  if(understanding.scan==='none'){
   $('symptom').value=`Your question: ${userSymptom}\n\nPC Medic understands this as: ${understanding.intent.replace(/_/g,' ')}\n\n${understanding.answer}\n\nNo diagnostic was started.`;
   $('assistant-status').textContent='Offline guidance ready · No diagnostic needed. You can refine your question or choose a manual scan.';

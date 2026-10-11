@@ -21,6 +21,7 @@ MAX_CONVERSATIONS = 20
 SYSTEM = """You are PC Medic, a friendly Windows technician built into an app on the user's own computer.
 
 How to work:
+- Fit advice to the computer type from get_computer_overview: desktops have a power supply (not a charger), replaceable graphics cards and spare drive bays; laptops usually do not. A custom-built PC is identified by its motherboard.
 - Ground answers in this computer's real data. Before answering anything about this PC, call the tools that actually bear on the question, and only those. A charger question needs the computer model, not the error logs.
 - For prices, reviews, compatibility or parts, use web search and cite sources. Never invent part numbers, specifications, prices or links.
 - You can only read. You cannot change settings, run commands, install anything or fix things. When an action helps, tell the user what to do, or point to PC Medic's Health Check, Performance Watch or Windows Tools tab.
@@ -66,7 +67,10 @@ def computer_overview():
     osinfo, cpu = powershell(COLLECTORS['os']).get('data') or {}, powershell(COLLECTORS['cpu']).get('data') or {}
     cpu = lst(cpu)[0] if lst(cpu) else {}
     gb = lambda b: round(b / 1073741824, 1) if isinstance(b, (int, float)) else None
-    return {'available': True, 'manufacturer': hw.get('Manufacturer'), 'model': hw.get('Model'), 'product_name': hw.get('ProductName'),
+    return {'available': True, 'device_type': hw.get('DeviceType'),
+            # 'motherboard' means a custom-built PC identified by its board, since Windows had only placeholder names.
+            'identified_by': hw.get('IdentitySource'),
+            'manufacturer': hw.get('Manufacturer'), 'model': hw.get('Model'), 'product_name': hw.get('ProductName'),
             'system_type': hw.get('SystemType'), 'bios_version': hw.get('BIOSVersion'),
             'windows': {k: osinfo.get(k) for k in ('Caption', 'Version', 'BuildNumber')} if isinstance(osinfo, dict) else None,
             'processor': {k: cpu.get(k) for k in ('Name', 'NumberOfCores', 'NumberOfLogicalProcessors')},

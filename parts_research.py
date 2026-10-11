@@ -10,9 +10,10 @@ from datetime import datetime, timezone
 MODEL=os.environ.get('PCMEDIC_RESEARCH_MODEL','claude-opus-5-5')
 MAX_SEARCHES=5
 OEM_DOMAINS={'lenovo':'lenovo.com','dell':'dell.com','hp':'hp.com','hewlett':'hp.com','asus':'asus.com','acer':'acer.com',
-             'microsoft':'microsoft.com','msi':'msi.com','micro-star':'msi.com','apple':'apple.com','samsung':'samsung.com','razer':'razer.com'}
+             'microsoft':'microsoft.com','msi':'msi.com','micro-star':'msi.com','apple':'apple.com','samsung':'samsung.com','razer':'razer.com',
+             'gigabyte':'gigabyte.com','asrock':'asrock.com','biostar':'biostar.com.tw'}
 RETAILERS=('amazon.com','cdw.com','microcenter.com','bestbuy.com','newegg.com','crucial.com','walmart.com','bhphotovideo.com')
-FIELD=re.compile(r'[\w .+\-/()]{0,90}')
+FIELD=re.compile(r'[\w .,&+\-/()]{0,90}')  # commas and & appear in maker names ('Micro-Star International Co., Ltd.')
 DETAILS=re.compile(r'[\w .,:;+\-/()]{0,200}')
 
 SYSTEM=("You are PC Medic's parts researcher. Use web search to find a replacement or upgrade part for one specific computer.\n"
@@ -27,6 +28,7 @@ SYSTEM=("You are PC Medic's parts researcher. Use web search to find a replaceme
 def part_profile(kind):
     """Search phrase plus the words a source must mention to be about this part."""
     k=kind.lower()
+    if 'power supply' in k or 'psu' in k:return 'power supply PSU',r'power supply|\bpsu\b|\b\d{3,4}\s?w\b|watt'
     if 'charger' in k or 'adapter' in k:return 'AC adapter charger',r'charger|adapter|\b\d{2,3}\s?w\b|watt'
     if 'battery' in k:return 'battery',r'batter'
     if 'ram' in k or 'memory' in k:return 'RAM memory upgrade',r'\bram\b|memory|ddr[345]|so-?dimm'
