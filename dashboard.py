@@ -67,6 +67,50 @@ def release_activity(owner):
  with ACTIVITY_LOCK:
   if ACTIVITY['owner']==owner:ACTIVITY.update(kind=None,owner=None,until=0.0)
 
+# The installed app has no console to close: it runs while at least one PC Medic window is open.
+# Each window pings /api/window every 30 s and says goodbye when it closes (a reload says hello again).
+WINDOWS = {}
+WINDOWS_STATE = {'last_close': None}
+WINDOWS_LOCK = threading.Lock()
+WINDOW_TIMEOUT = 150       # a hidden window's timers can slow to once a minute
+CLOSE_GRACE = 20           # time for a reload or a second window after one closes
+FIRST_WINDOW_GRACE = 120   # time for the first window to open after launch
+
+def idle_exit_due(windows, now, started, last_close, busy):
+ """True when no PC Medic window is open (or has pinged recently) and no diagnostic is running."""
+ if busy or any(now-t<WINDOW_TIMEOUT for t in windows.values()):return False
+ if last_close is not None and now-last_close<CLOSE_GRACE:return False
+ return bool(windows) or last_close is not None or now-started>FIRST_WINDOW_GRACE
+
+def exit_when_windows_close(server, check_every=5):
+ started=time.monotonic()
+ while True:
+  time.sleep(check_every)
+  now=time.monotonic()
+  with ACTIVITY_LOCK:busy=bool(ACTIVITY['owner']) and now<ACTIVITY['until']
+  with WINDOWS_LOCK:due=idle_exit_due(dict(WINDOWS),now,started,WINDOWS_STATE['last_close'],busy)
+  if due:
+   print('No PC Medic window is open; stopping.',flush=True)
+   return server.shutdown()
+
+def find_running(port, tries=10):
+ """The port of a PC Medic already running for this Windows account, or None. Other accounts' copies answer 403."""
+ import urllib.request
+ for candidate in range(port,port+tries):
+  try:
+   req=urllib.request.Request(f'http://127.0.0.1:{candidate}/api/ping',headers={'Host':f'127.0.0.1:{candidate}'})
+   with urllib.request.urlopen(req,timeout=1) as r:
+    if json.load(r).get('app')=='pc-medic':return candidate
+  except Exception:continue
+ return None
+
+def redirect_output(path):
+ """A windowed .exe has no console (sys.stdout is None): write prints and request logs to a file instead."""
+ if sys.stdout is not None and sys.stderr is not None:return
+ log=open(path,'w',encoding='utf-8',buffering=1) if path else open(os.devnull,'w')
+ if sys.stdout is None:sys.stdout=log
+ if sys.stderr is None:sys.stderr=log
+
 def valid_owner(value):
  return isinstance(value,str) and bool(re.fullmatch(r'[A-Za-z0-9-]{8,64}',value))
 DEMO = {
@@ -373,6 +417,7 @@ class Handler(BaseHTTPRequestHandler):
    case=troubleshooter.get((parse_qs(urlparse(self.path).query).get('id') or [''])[0])
    return self.send_json(troubleshooter.public(case)) if case else self.send_json({'error':'Unknown case'},404)
   if path=='/api/update-check':return self.send_json(settings.check_for_update())
+  if path=='/api/ping':return self.send_json({'app':'pc-medic','version':VERSION})
   if path=='/api/assistant/job':
    job=assistant.JOBS.get((parse_qs(urlparse(self.path).query).get('id') or [''])[0])
    return self.send_json(job) if job else self.send_json({'error':'Unknown or expired question'},404)
@@ -406,6 +451,13 @@ class Handler(BaseHTTPRequestHandler):
    if not isinstance(body,dict): return self.send_json({'error':'Expected a JSON object'},400)
    if not isinstance(body,dict):raise ValueError('Invalid request')
   except (ValueError,json.JSONDecodeError):return self.send_json({'error':'Invalid JSON'},400)
+  if path=='/api/window':
+   owner=body.get('owner')
+   if not valid_owner(owner):return self.send_json({'error':'Invalid window id'},400)
+   with WINDOWS_LOCK:
+    if body.get('closed'):WINDOWS.pop(owner,None);WINDOWS_STATE['last_close']=time.monotonic()
+    else:WINDOWS[owner]=time.monotonic()
+   return self.send_json({'ok':True})
   if path=='/api/activity':
    owner=body.get('owner')
    if not valid_owner(owner):return self.send_json({'error':'Invalid window id'},400)
@@ -599,12 +651,19 @@ def open_app_window(url):
 def main():
  if len(sys.argv)>1 and sys.argv[1]=='--run-collector':
   import collector
+  redirect_output(None)
   sys.argv=[sys.argv[0]]+sys.argv[2:]
   return collector.main()
  p=argparse.ArgumentParser();p.add_argument('--demo',action='store_true');p.add_argument('--port',type=int,default=8765)
  p.add_argument('--no-window',action='store_true',help="Don't open the PC Medic window (open the address in a browser yourself)")
+ p.add_argument('--exit-when-closed',action='store_true',help='Stop the server after the last PC Medic window closes (always on in the installed app)')
  p.add_argument('--ignore-env-keys',action='store_true',help='Ignore ANTHROPIC_API_KEY/OPENAI_API_KEY, to test Settings and the trial as a new user')
  a=p.parse_args()
+ redirect_output(DATA/'pcmedic.log')
+ # Opening the installed app again shows the copy that is already running instead of starting a second one.
+ if FROZEN and not a.no_window and not a.demo:
+  running=find_running(a.port)
+  if running:open_app_window(f'http://127.0.0.1:{running}');return
  if a.ignore_env_keys:settings.IGNORE_ENVIRONMENT=True;print('Ignoring API keys from the environment (testing Settings and the trial).',flush=True)
  else:load_saved_keys()
  server=start_server(a.port);server.demo=a.demo
@@ -613,6 +672,7 @@ def main():
  print(f'PC Medic AI {VERSION}: http://127.0.0.1:{port} ({"SIMULATED DEMO" if a.demo else "LOCAL SCAN"})',flush=True)
  print('Diagnostics are read-only. Storage Explorer can move explicitly selected personal files to Recycle Bin. Ctrl+C to stop.',flush=True)
  if not a.no_window:threading.Timer(0.3,open_app_window,(f'http://127.0.0.1:{port}',)).start()
+ if FROZEN or a.exit_when_closed:threading.Thread(target=exit_when_windows_close,args=(server,),daemon=True).start()
  try:server.serve_forever()
  except KeyboardInterrupt:pass
  finally:server.server_close()

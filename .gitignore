@@ -6,3 +6,8 @@ cases.json
 scan.json
 scan_history.json
 settings.json
+build/
+dist/
+packaging/version_info.txt
+packaging/pcmedic.ico
+pcmedic.log

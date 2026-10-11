@@ -124,6 +124,66 @@ class TestEndpoints(unittest.TestCase):
         self.assertTrue(r['technical'].startswith('Battery L22D4PA0'))
 
 
+class TestAppLifecycle(unittest.TestCase):
+    def test_idle_exit(self):
+        due = dashboard.idle_exit_due
+        self.assertFalse(due({}, 60, 0, None, False))                      # first window still opening
+        self.assertTrue(due({}, 200, 0, None, False))                      # no window ever opened
+        self.assertFalse(due({'w': 100}, 200, 0, None, False))             # window pinged recently
+        self.assertTrue(due({'w': 100}, 300, 0, None, False))              # window went silent
+        self.assertFalse(due({}, 205, 0, 200, False))                      # just closed: maybe a reload
+        self.assertTrue(due({}, 230, 0, 200, False))                       # closed and nothing came back
+        self.assertFalse(due({}, 900, 0, 200, True))                       # a diagnostic is still running
+
+    def test_window_and_ping_endpoints(self):
+        server = ThreadingHTTPServer(('127.0.0.1', 0), dashboard.Handler)
+        server.demo = True
+        port = server.server_address[1]
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            self.assertEqual(dashboard.find_running(port, tries=1), port)
+            def post(body):
+                req = urllib.request.Request(f'http://127.0.0.1:{port}/api/window', data=json.dumps(body).encode(), method='POST',
+                                             headers={'Content-Type': 'application/json', 'X-PC-Medic-Token': dashboard.TOKEN, 'Host': f'127.0.0.1:{port}'})
+                with urllib.request.urlopen(req, timeout=5) as r:
+                    return json.load(r)
+            post({'owner': 'window-test-1'})
+            self.assertIn('window-test-1', dashboard.WINDOWS)
+            post({'owner': 'window-test-1', 'closed': True})
+            self.assertNotIn('window-test-1', dashboard.WINDOWS)
+            self.assertIsNotNone(dashboard.WINDOWS_STATE['last_close'])
+        finally:
+            server.shutdown(); server.server_close()
+            dashboard.WINDOWS_STATE['last_close'] = None
+
+    def test_find_running_ignores_closed_ports(self):
+        import socket
+        with socket.socket() as s:
+            s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
+        self.assertIsNone(dashboard.find_running(port, tries=1))
+
+    def test_windowed_exe_logs_to_file(self):
+        import os, sys, tempfile
+        path = os.path.join(tempfile.mkdtemp(), 'pcmedic.log')
+        with patch.object(sys, 'stdout', None), patch.object(sys, 'stderr', None):
+            dashboard.redirect_output(path)
+            print('hello log')
+            sys.stdout.close()
+        with open(path, encoding='utf-8') as f:
+            self.assertEqual(f.read().strip(), 'hello log')
+
+
+class TestPageElements(unittest.TestCase):
+    def test_every_element_the_script_uses_exists(self):
+        # 1.17.0 removed #evidence-note but kept a write to it, which stopped every Health Check partway.
+        import re
+        page = open(dashboard.BASE / 'dashboard.html', encoding='utf-8').read()
+        script = re.findall(r'<script>(.*?)</script>', page, re.S)[-1]
+        used = set(re.findall(r"\$\('([\w-]+)'\)", script))
+        declared = set(re.findall(r'id="([\w-]+)"', page.replace(script, ''))) | set(re.findall(r"\.id=['\"]([\w-]+)['\"]", script))
+        self.assertEqual(sorted(used - declared), [])
+
+
 class TestAppWindow(unittest.TestCase):
     def test_edge_app_mode(self):
         with patch('pathlib.Path.exists', return_value=True), patch('subprocess.Popen') as popen:

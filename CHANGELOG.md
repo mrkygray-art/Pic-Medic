@@ -22,6 +22,24 @@ Redesign, phase 1: a Windows 11 look and two audiences, home users and technicia
   - Windows 11 (Fluent) styling with Segoe UI Variable, a light navigation pane, white cards and the `#005FB8` accent.
   - Dark mode follows Windows and is remembered. The page has a window icon.
 - **Fix:** the technical battery line no longer fails when Windows doesn't report a capacity.
+- **Fix:** the Health Check stopped partway with "Cannot set properties of null" since 1.17.0. The 1.17.0 cleanup removed `#evidence-note`, but the findings code still wrote to it. A new test checks that every element ID the page script uses exists.
+
+### Windows installer (first release)
+- `packaging/build.ps1` builds `PCMedic-Setup-<version>.exe`:
+  - It runs the tests, draws the icon (`make_icon.py`), builds a windowed one-folder app with PyInstaller (`pcmedic.spec`, with version info), then packs it with Inno Setup (`PCMedic.iss`).
+  - The installer is per-user, with no admin prompt. It installs to `%LOCALAPPDATA%\Programs\PC Medic` and adds a Start menu shortcut, an optional desktop shortcut and an uninstaller.
+  - No API key is ever bundled.
+- **App lifecycle:**
+  - Opening the installed app again shows the running copy (`/api/ping`, `find_running`).
+  - Windows ping `/api/window`, and the app stops about 30 s after its last window closes (`--exit-when-closed` from source). It never stops while a diagnostic is running.
+  - The windowed .exe writes its log to `%LOCALAPPDATA%\PC Medic\pcmedic.log`, since it has no console.
+- Tested on Windows 11 build 26300:
+  - Silent install.
+  - Today screen, a disk-health question, and a full Health Check through the packaged collector.
+  - Self-exit after the window closes.
+  - Upgrading over an existing install.
+  - Uninstall (saved data kept).
+- The installer is not code-signed yet, so SmartScreen shows a warning on first run.
 
 ## 1.17.0 (2026-10-10)
 

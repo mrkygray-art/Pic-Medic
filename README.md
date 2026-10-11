@@ -16,6 +16,14 @@ Runs on Windows 10 and 11 laptops and desktops. Windows Server is out of scope.
 - **Technician report.** A printable summary of the computer, findings, checks, troubleshooting history and the conversation, with space for notes.
 - **Tools.** Storage Explorer finds large files and safely moves them to the Recycle Bin. You can also open Windows tools after confirming, and view Devices & Drivers.
 
+## Install
+
+1. Download `PCMedic-Setup-<version>.exe` from [Releases](https://github.com/mrkygray-art/Pic-Medic/releases/latest).
+2. Run it. It installs for your Windows account only, so no administrator approval is needed, and adds PC Medic to the Start menu.
+3. The installer isn't code-signed yet, so Windows SmartScreen may say "Windows protected your PC". Click **More info**, then **Run anyway**. You can compare the file's SHA-256 with the one in the release notes (`Get-FileHash .\PCMedic-Setup-*.exe`).
+
+PC Medic opens in its own window. Opening it again brings up the copy that's already running, and it stops by itself about half a minute after you close its last window. Uninstall it from **Settings > Apps**. Your saved checks and troubleshooting history stay in `%LOCALAPPDATA%\PC Medic` until you delete that folder.
+
 ## Run from source
 
 1. Install Python 3.10 or newer on Windows, then run `pip install -r requirements.txt` in this folder.
@@ -41,6 +49,10 @@ A key set as `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` on the PC also works. Instal
 - Every check is read-only. PC Medic opens Windows pages and tools after you confirm; you make every change.
 - Nothing leaves the PC in Offline mode. Before Claude or ChatGPT is used, PC Medic asks once per session and lists what is shared. It never sends serial numbers, user or computer names, IP or MAC addresses, file names, or program and process names.
 - Storage Explorer only moves files to the Recycle Bin. It refuses files that are too large for the Recycle Bin, because Windows would delete those permanently.
+
+## Build the installer
+
+`powershell -ExecutionPolicy Bypass -File packaging\build.ps1` runs the tests, draws the icon, builds a one-folder app with PyInstaller (`packaging\pcmedic.spec`), and packs it with Inno Setup 6 (`packaging\PCMedic.iss`) into `dist\PCMedic-Setup-<version>.exe`. It needs `pip install pyinstaller pillow` and `winget install JRSoftware.InnoSetup`. The build never includes an API key.
 
 ## Updates
 
