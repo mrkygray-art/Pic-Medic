@@ -46,7 +46,7 @@ PC Medic opens in its own window (Microsoft Edge app mode, without tabs or an ad
 
 PC Medic works offline without any key. For AI answers, open **Settings** and paste an Anthropic (Claude) or OpenAI (ChatGPT) key. Keys are checked with the provider, then stored in Windows Credential Manager for your Windows account, and are never shown again.
 
-A key set as `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` on the PC also works. Installed copies can include a trial key (`PCMEDIC_TRIAL_ANTHROPIC_API_KEY`) that allows 10 AI questions per Windows account, after which PC Medic asks for the user's own key. Before public release, move the trial key behind a small service. A key bundled inside an app can be extracted.
+A key set as `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` on the PC also works. Installed copies can include a trial key (`PCMEDIC_TRIAL_ANTHROPIC_API_KEY`) that allows 10 AI questions per Windows account, only after the user signs in with Google in Settings (Google sign-in keeps just the account ID and email on the PC; your own key never needs it), after which PC Medic asks for the user's own key. Before public release, move the trial key behind a small service. A key bundled inside an app can be extracted.
 
 ## Privacy and safety
 

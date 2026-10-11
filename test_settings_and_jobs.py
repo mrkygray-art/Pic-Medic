@@ -28,7 +28,7 @@ class TestKeysAndTrial(unittest.TestCase):
             self.assertEqual(settings.resolve('anthropic'), ('trial-key', 'trial'))
 
     def test_trial_allows_ten_questions_then_asks_for_own_key(self):
-        with patch.dict('os.environ', {'PCMEDIC_TRIAL_ANTHROPIC_API_KEY': 'trial-key'}, clear=True), patch('settings.load_key', return_value=None):
+        with patch.dict('os.environ', {'PCMEDIC_TRIAL_ANTHROPIC_API_KEY': 'trial-key'}, clear=True), patch('settings.load_key', return_value=None),              patch('settings.signed_in', return_value=True):
             for _ in range(settings.TRIAL_LIMIT):
                 key, source = settings.key_for_use('anthropic')
                 settings.record_use(source)

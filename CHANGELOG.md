@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Google sign-in** (`google_auth.py`, Settings > Google account): PC Medic's free AI questions now need a Google sign-in. Your own Anthropic or OpenAI key never does.
+  - Sign-in uses Google's flow for desktop apps: the page opens in your default browser and returns to a one-time listener on 127.0.0.1 (PKCE, random state, 5-minute limit).
+  - Only `openid email` is requested. PC Medic keeps the account ID and email in Windows Credential Manager and throws away Google's tokens. Nothing about the PC is sent.
+  - The 10-question count is still per Windows account, so signing in with another Google account doesn't reset it.
+  - Needs a Google Cloud "Desktop app" OAuth client (`google_auth.DEFAULT_CLIENT_ID`/`DEFAULT_CLIENT_SECRET`, or `PCMEDIC_GOOGLE_CLIENT_ID`/`PCMEDIC_GOOGLE_CLIENT_SECRET`). Without one, Settings says sign-in isn't set up and the trial stays off.
 - The GitHub repository is now `mrkygray-art/pc-medic` (it was `Pic-Medic`). Update checks use the new name. Copies of 1.18.0 and 1.18.1 still find updates through GitHub's redirect.
 
 ## 1.18.1 (2026-10-11)

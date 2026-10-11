@@ -29,6 +29,7 @@ import local_security
 import socket
 import assistant
 import settings
+import google_auth
 import troubleshooter
 import report as tech_report
 import today
@@ -580,6 +581,13 @@ class Handler(BaseHTTPRequestHandler):
    return self.send_json({'removed':True,'settings':settings.summary()})
   if path=='/api/settings/updates':
    settings.set_update_checks(body.get('enabled') is True)
+   return self.send_json({'settings':settings.summary()})
+  if path=='/api/google/sign-in':  # opens Google's page in the default browser; the page polls /api/settings
+   try:google_auth.start()
+   except (RuntimeError,OSError) as exc:return self.send_json({'error':str(exc)},400)
+   return self.send_json({'started':True,'settings':settings.summary()})
+  if path=='/api/google/sign-out':
+   google_auth.sign_out()
    return self.send_json({'settings':settings.summary()})
   if path in ('/api/parts-research','/api/parts-research-preview'):
    fields={k:body.get(k,'') for k in ('kind','manufacturer','model','product_name','part_number','details')}

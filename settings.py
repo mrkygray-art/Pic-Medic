@@ -3,7 +3,8 @@
 Key sources, in order:
   1. 'saved'       - the user's own key, saved in Settings (Windows Credential Manager, encrypted for this Windows account)
   2. 'environment' - ANTHROPIC_API_KEY / OPENAI_API_KEY on this PC (a developer's own key)
-  3. 'trial'       - PC Medic's included key, limited to TRIAL_LIMIT AI questions per Windows account
+  3. 'trial'       - PC Medic's included key, limited to TRIAL_LIMIT AI questions per Windows account, and only
+                     after the user signs in with Google (google_auth.py)
 Keys never go to the browser; the UI only sees which source is in use.
 
 WARNING before public release: a trial key shipped inside the .exe can be extracted and the local counter can be
@@ -33,6 +34,10 @@ LOCK = threading.Lock()
 
 class TrialExhausted(RuntimeError):
     pass
+
+
+class SignInRequired(TrialExhausted):
+    """The trial key is there, but nobody has signed in with Google yet."""
 
 
 # ---------- Windows Credential Manager ----------
@@ -119,15 +124,23 @@ def resolve(provider):
     return None, None
 
 
+def signed_in():
+    import google_auth  # google_auth imports this module
+    return google_auth.account() is not None
+
+
 def trial_uses():
     return int(_read().get('trial_uses', 0))
 
 
 def key_for_use(provider):
-    """Key for one AI request; raises TrialExhausted once the trial allowance is spent."""
+    """Key for one AI request; raises SignInRequired before a Google sign-in and TrialExhausted once the trial is spent."""
     key, source = resolve(provider)
     if not key:
         return None, None
+    if source == 'trial' and not signed_in():
+        raise SignInRequired(f"PC Medic's {TRIAL_LIMIT} free AI questions need a Google sign-in. Sign in with Google in Settings, "
+                             'or add your own Anthropic or OpenAI API key there. Offline answers still work.')
     if source == 'trial' and trial_uses() >= TRIAL_LIMIT:
         raise TrialExhausted(f'You have used the {TRIAL_LIMIT} free AI questions included with PC Medic. '
                              'Add your own Anthropic or OpenAI API key in Settings to keep using AI. Offline answers still work.')
@@ -173,7 +186,9 @@ def verify_key(provider, key):
 def summary():
     """What the Settings screen shows. Never includes key values."""
     uses = trial_uses()
+    import google_auth
     out = {'providers': {}, 'trial': {'limit': TRIAL_LIMIT, 'used': uses, 'remaining': max(0, TRIAL_LIMIT - uses)},
+           'google': google_auth.status(),
            'updates': {'enabled': update_checks_enabled(), 'repo': UPDATE_REPO, 'version': VERSION}}
     for provider in PROVIDERS:
         key, source = resolve(provider)
