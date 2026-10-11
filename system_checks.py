@@ -7,6 +7,7 @@ import json, os, re, subprocess
 from datetime import datetime, date
 
 import bluescreen
+import error_codes
 
 DEEP_SCAN_FILE = None  # set by dashboard.py; the latest administrator deep scan (deep_scan.py), if any
 
@@ -273,10 +274,30 @@ def crash_items(d):
     if bsod and not any(b.get('Driver') for b in bsod):out.append(_item('Driver','note','Run the deep scan below to read the crash dumps and find the likely driver.',f'minidumps {d.get("MinidumpCount")} (readable without admin: {d.get("MinidumpReadable")})'))
     return out
 
+def update_errors(d):
+    """Failed updates grouped by error code, most frequent first: [(code, [failures])]."""
+    groups={}
+    for f in as_list(d.get('Failures')):
+        if isinstance(f,dict):groups.setdefault(f.get('Error') or None,[]).append(f)
+    return sorted(groups.items(),key=lambda kv:-len(kv[1]))
+
+def update_items(d):
+    """Rows for the Windows Update errors panel."""
+    out=[]
+    for code,group in update_errors(d):
+        info=error_codes.lookup(code) if code else None
+        names=sorted({f.get('Update') or 'unknown update' for f in group})
+        harmless=code=='0x80073D02' or (info and info.get('name')=='WU_E_NOT_APPLICABLE')
+        out.append(_item(code or 'Unknown','note' if harmless else 'attention',
+                         (f'{len(group)} failed install{"s" if len(group)!=1 else ""}. ' if len(group)>1 else '')+(f'{info["meaning"]} {info["fix"]}' if info else 'No error code was recorded.'),
+                         f'{code} {(info or {}).get("name") or ""} ×{len(group)} · last {str(group[0].get("Date"))[:10]} · '+'; '.join(names[:3])+(f' (+{len(names)-3})' if len(names)>3 else '')))
+    if not out:out.append(_item('Last 30 days','good',f'No failed updates. {d.get("SuccessCount",0)} installed successfully.',f'WU 30 d: {d.get("SuccessCount",0)} ok · 0 failed'))
+    return out
+
 def items(name,d):
     """Structured rows for checks that have them (the Technician Deep checks screen); [] otherwise."""
     if not d.get('available'):return []
-    return security_items(d) if name=='security' else crash_items(d) if name=='crashes' else []
+    return security_items(d) if name=='security' else crash_items(d) if name=='crashes' else update_items(d) if name=='updates' else []
 
 def month_year(iso):
     try:return datetime.fromisoformat(iso).strftime('%B %Y')
@@ -348,11 +369,11 @@ def describe(name, d):
         elif not bsod:lines.append('Unexpected restarts without a blue screen often mean power loss, a held power button, overheating or a hard freeze.')
     elif name=='updates':
         lines.append(f'Successful installs: {d.get("SuccessCount",0)}. Failed installs: {d.get("FailureCount",0)}.'+(f' Last success: {str(d.get("LastSuccess"))[:10]}.' if d.get('LastSuccess') else ''))
-        for f in as_list(d.get('Failures'))[:5]:
-            update=re.sub(r'^[0-9A-Z]{12}-','Microsoft Store app ',f.get('Update') or 'unknown update')  # Store product IDs mean nothing to people
-            lines.append(f'Failed {str(f.get("Date"))[:10]}: {update} (error {f.get("Error") or "unknown"}).')
-        if any(f.get('Error')=='0x80073D02' for f in as_list(d.get('Failures'))):lines.append('Error 0x80073D02 means a Store app was open during its update; it usually succeeds on a later try.')
-        if d.get('FailureCount'):lines.append('If the same update keeps failing, run Windows Update troubleshooter (Settings > System > Troubleshoot) and search the error code.')
+        for code,group in update_errors(d):
+            info=error_codes.lookup(code) if code else None
+            names=sorted({re.sub(r'^[0-9A-Z]{12}-','Microsoft Store app ',f.get('Update') or 'unknown update') for f in group})  # Store product IDs mean nothing to people
+            lines.append(f'Error {code or "unknown"}{f", {len(group)} times" if len(group)>1 else ""} (last {str(group[0].get("Date"))[:10]}): {names[0]}'+(f' and {len(names)-1} other update{"s" if len(names)>2 else ""}' if len(names)>1 else '')+'.')
+            if info:lines.append(f'  What it means: {info["meaning"]} What to do: {info["fix"]}')
     elif name=='startup_apps':
         apps=as_list(d.get('Apps'))
         names=[re.sub(r'_[0-9A-F]{32}$','',a.get('Name','')) for a in apps]  # Edge adds a profile hash
@@ -402,7 +423,7 @@ def describe_technical(name, d):
                 f' · EventLog 6008 ×{d.get("DirtyShutdowns",0)} · minidumps {d.get("MinidumpCount",0)}' + (f' (latest {str(d.get("LatestMinidump"))[:10]})' if d.get('LatestMinidump') else ''))
     if name=='updates':
         from collections import Counter
-        codes=Counter(f.get('Error') or '?' for f in as_list(d.get('Failures')))
+        codes=Counter(f'{f.get("Error") or "?"}'+(f' {(error_codes.lookup(f["Error"]) or {}).get("name") or ""}'.rstrip() if f.get('Error') else '') for f in as_list(d.get('Failures')))
         return (f'Windows Update ({d.get("WindowDays",30)} d): {d.get("SuccessCount",0)} ok · {d.get("FailureCount",0)} failed'
                 + (': ' + ', '.join(f'{c} ×{n}' for c,n in codes.most_common()) if codes else '') + (f' · last ok {str(d.get("LastSuccess"))[:10]}' if d.get('LastSuccess') else ''))
     if name=='startup_apps':

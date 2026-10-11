@@ -33,6 +33,11 @@ def classify(question, context=None):
         return {'intent':'replacement_part','part':'replacement laptop charger','scan':'none'}
     if has(r'\b(batter(y|ies))\b') and has(r'\b(replace\w*|new|buy|purchase|order|need|find|where can i|swap)\b') and not has(r'\b(drain\w*|health|life|report|lasting|dies fast)\b'):
         return {'intent':'replacement_part','part':'replacement laptop battery','scan':'none'}
+    # An error code ("what does 0x80070643 mean?") is looked up offline (error_codes.py).
+    if has(r'\b0x[0-9a-f]{1,8}\b') or (has(r'\b8[0-9a-f]{7}\b') and has(r'\b(error|code|update|fail\w*)\b')):
+        import error_codes
+        code=error_codes.find_code(q)
+        if code is not None:return {'intent':'error_code','code':f'0x{code:08X}','scan':'none'}
     # Slowness starts a guided troubleshooting case (troubleshooter.py). When the wording says when it happens,
     # the case skips the "when is it slow?" question. Slow internet is a network problem, not a slow PC.
     if has(r'\b(slow\w*|sluggish|lag|lags|lagging|laggy|stutter\w*|takes (forever|ages|a long time)|unresponsive|hangs|hanging|bogged down)\b') \

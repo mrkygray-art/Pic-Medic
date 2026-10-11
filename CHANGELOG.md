@@ -1,7 +1,12 @@
 # PC Medic AI changelog
 
-## Unreleased
+## 1.19.0 (2026-10-11)
 
+- **Error-code lookup** (`error_codes.py`, `GET /api/error-code`): ask "what does 0x80070643 mean?" (or "update error 8024200B") and PC Medic explains it offline: what happened and what to do.
+  - It covers about 35 common Windows Update errors (WU, servicing and network codes), blue-screen stop codes and common program crash codes (such as 0xC0000005).
+  - For other codes it uses Windows' own description, or the code's family.
+  - The Windows Update check groups failures by error code with that explanation, and Technician mode shows each code's Windows name (for example `WU_E_UH_INSTALLERFAILURE`).
+  - Deep checks has a **Windows Update errors** panel.
 - **Deep checks** (Technician mode, new screen), all read-only:
   - **Security posture** (`system_checks` check `security`, no admin needed): Defender or another antivirus, signature age, Tamper Protection, firewall profiles, UAC level, Secure Boot, TPM (`tpmtool`), drive encryption, whether you sign in as an administrator, activation, Windows version support end date (Home/Pro dates in `SUPPORT_END`), last security update, Remote Desktop and SMB1. Each row is good, worth knowing, needs attention or problem, in plain and technical words. Home mode asks "Is my computer protected?" from a Tools card, and questions like "is my PC secure?" or "is Defender on?" route to it.
   - **Blue screens** (`bluescreen.py`): each stop code gets its name, what happened and what usually causes it (about 40 common codes), with the parameters and dump file in Technician mode. The deep scan reads the minidumps and finds the likely driver the way BlueScreenView does (a bug-check parameter that points into a driver, otherwise the first non-kernel driver on the crash stack), with the driver's maker and version. Anything that doesn't validate is dropped, never guessed.

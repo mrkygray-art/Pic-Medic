@@ -33,6 +33,7 @@ import google_auth
 import troubleshooter
 import report as tech_report
 import deep_scan
+import error_codes
 import today
 import timeline
 
@@ -121,7 +122,7 @@ def redirect_output(path):
 DEEP = {'state': 'idle', 'error': None}
 DEEP_LOCK = threading.Lock()
 
-def run_elevated(args):
+def run_elevated(args,verb='runas'):
  """Start this program again as administrator (Windows asks the user first). Returns a process handle; PermissionError if they said No."""
  import ctypes
  from ctypes import wintypes
@@ -133,7 +134,7 @@ def run_elevated(args):
  else:
   pythonw=Path(sys.executable).with_name('pythonw.exe')  # no console window for the elevated copy
   exe,params=str(pythonw if pythonw.exists() else sys.executable),[str(BASE/'dashboard.py')]+args
- sei=SEI(cbSize=ctypes.sizeof(SEI),fMask=0x40|0x100,lpVerb='runas',lpFile=exe,lpParameters=subprocess.list2cmdline(params),nShow=0)  # NOCLOSEPROCESS|NOASYNC
+ sei=SEI(cbSize=ctypes.sizeof(SEI),fMask=0x40|0x100,lpVerb=verb,lpFile=exe,lpParameters=subprocess.list2cmdline(params),nShow=0)  # NOCLOSEPROCESS|NOASYNC
  shell=ctypes.WinDLL('shell32',use_last_error=True)
  shell.ShellExecuteExW.argtypes=[ctypes.POINTER(SEI)];shell.ShellExecuteExW.restype=wintypes.BOOL
  if not shell.ShellExecuteExW(ctypes.byref(sei)):
@@ -489,6 +490,10 @@ class Handler(BaseHTTPRequestHandler):
    data=system_checks.check(name)
    return self.send_json({'name':name,'available':data.get('available',False),'summary':system_checks.describe(name,data),'technical':system_checks.describe_technical(name,data),'items':system_checks.items(name,data)})
   if path=='/api/deep-scan':return self.send_json(deep_status())
+  if path=='/api/error-code':
+   info=error_codes.lookup((parse_qs(urlparse(self.path).query).get('code') or [''])[0][:40])
+   if not info:return self.send_json({'error':'No error code found'},400)
+   return self.send_json({**info,'summary':error_codes.describe(info),'technical':error_codes.describe(info,True)})
   if path=='/api/today':
    refresh=(parse_qs(urlparse(self.path).query).get('refresh') or [''])[0]=='1'
    return self.send_json(today.get(self.server.demo,refresh))

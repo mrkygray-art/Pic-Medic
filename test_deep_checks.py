@@ -263,3 +263,41 @@ class TestDeepScanServer(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestErrorCodes(unittest.TestCase):
+    def test_lookup(self):
+        import error_codes
+        self.assertEqual(error_codes.lookup('0x8024200b')['name'], 'WU_E_UH_INSTALLERFAILURE')
+        self.assertEqual(error_codes.lookup('error 80070643 again')['code'], '0x80070643')
+        self.assertEqual(error_codes.lookup('0x0000009F')['name'], 'DRIVER_POWER_STATE_FAILURE')
+        self.assertEqual(error_codes.lookup('0xC0000005')['name'], 'STATUS_ACCESS_VIOLATION')
+        self.assertEqual(error_codes.lookup('0x8024202A')['source'], 'the code’s error family')
+        self.assertIsNone(error_codes.lookup('no code here'))
+
+    def test_routing_and_update_check(self):
+        self.assertEqual(intent_engine.classify('what does error 0x800F0823 mean', {}), {'intent': 'error_code', 'code': '0x800F0823', 'scan': 'none'})
+        self.assertEqual(intent_engine.classify('windows update error 8024200B', {})['code'], '0x8024200B')
+        d = {'available': True, 'SuccessCount': 5, 'FailureCount': 3, 'Failures': [
+            {'Date': '2026-10-04T10:00:00', 'Error': '0x8024200B', 'Update': 'Lenovo Driver Update'},
+            {'Date': '2026-10-03T10:00:00', 'Error': '0x8024200B', 'Update': 'Lenovo Driver Update'},
+            {'Date': '2026-10-02T10:00:00', 'Error': '0x80073D02', 'Update': '9NBLGGH4NNS1-Microsoft.Photos'}]}
+        text = system_checks.describe('updates', d)
+        self.assertIn('Error 0x8024200B, 2 times', text)
+        self.assertIn('driver and firmware updates', text)
+        rows = system_checks.items('updates', d)
+        self.assertEqual([r['state'] for r in rows], ['attention', 'note'])
+        self.assertIn('WU_E_UH_INSTALLERFAILURE', system_checks.describe_technical('updates', d))
+
+    def test_error_code_endpoint(self):
+        server = ThreadingHTTPServer(('127.0.0.1', 0), dashboard.Handler); server.demo = True
+        port = server.server_address[1]
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            req = urllib.request.Request(f'http://127.0.0.1:{port}/api/error-code?code=0x80070070', headers={'Host': f'127.0.0.1:{port}'})
+            with urllib.request.urlopen(req, timeout=5) as r:
+                body = json.load(r)
+            self.assertEqual(body['name'], 'ERROR_DISK_FULL')
+            self.assertIn('What to do', body['summary'])
+        finally:
+            server.shutdown(); server.server_close()
