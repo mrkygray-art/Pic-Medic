@@ -1,6 +1,6 @@
 # PC Medic AI changelog
 
-## Unreleased
+## 1.18.1 (2026-10-11)
 
 - A window left open while PC Medic restarts now says "PC Medic was restarted. Press F5 to reload this window" instead of failing with a confusing error (its old code and token no longer match the server).
 - A Health Check failure is also logged to the browser console with the full error.
