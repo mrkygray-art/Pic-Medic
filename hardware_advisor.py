@@ -31,6 +31,7 @@ def inventory():
   if proc.returncode or not proc.stdout.strip(): return {'available':False,'reason':'Windows could not provide hardware inventory.'}
   d=json.loads(proc.stdout.lstrip('\ufeff').strip()); d['available']=True
   d['ProductName']=clean_product_name(d.get('ProductName'))
+  d['RamSummary']=ram_summary(d)
   batteries=d.get('BatteryModels') or []
   d['BatteryModels']=[str(b).strip() for b in (batteries if isinstance(batteries,list) else [batteries]) if str(b).strip()][:2]
   return d
@@ -48,5 +49,42 @@ def ram_advice(data):
  arrays=data.get('Arrays') or [];arrays=arrays if isinstance(arrays,list) else [arrays]
  if arrays:
   slots=arrays[0].get('MemoryDevices');lines.append(f'Windows-reported memory device positions: {slots if slots is not None else "unknown"}. This does NOT confirm free upgradeable sockets.')
- lines.extend(['Upgrade compatibility is NOT confirmed from Windows inventory alone. Some RAM is soldered; BIOS, motherboard, processor and OEM specifications can limit supported capacity and speed.', 'Next: verify the exact model or motherboard on the manufacturer support page. Confirm maximum RAM, socket count, DDR generation, SO-DIMM/DIMM form factor and whether memory is soldered before ordering.', 'I cannot responsibly provide a guaranteed compatible purchase part number or live Amazon/CDW availability without verifying the manufacturer specifications and current listings.'])
+ lines.extend(ram_summary(data))
  return '\n\n'.join(lines)
+
+# SMBIOS memory type and form factor codes as reported by Win32_PhysicalMemory.
+MEMORY_TYPES={20:'DDR',21:'DDR2',24:'DDR3',26:'DDR4',34:'DDR5',29:'LPDDR3',30:'LPDDR4',35:'LPDDR5'}
+FORM_FACTORS={8:'DIMM',12:'SO-DIMM'}
+
+def ram_summary(data):
+ """Plain-English reading of the RAM evidence: type, removable or soldered, slots, firmware maximum."""
+ mods=data.get('Modules') or [];mods=mods if isinstance(mods,list) else [mods]
+ if not mods:return ['Windows did not report individual memory modules, so PC Medic cannot tell whether the RAM is removable. Check the manufacturer specifications.']
+ arrays=data.get('Arrays') or [];arrays=arrays if isinstance(arrays,list) else [arrays]
+ slots=(arrays[0] if arrays else {}).get('MemoryDevices')
+ max_kb=(arrays[0] if arrays else {}).get('MaxCapacityEx') or (arrays[0] if arrays else {}).get('MaxCapacity')
+ types=sorted({MEMORY_TYPES.get(m.get('SMBIOSMemoryType')) for m in mods}-{None})
+ kind='/'.join(types) or 'unknown type'
+ sizes=[round(m['Capacity']/1073741824) for m in mods if isinstance(m.get('Capacity'),(int,float))]
+ speed=max([m.get('Speed') or m.get('ConfiguredClockSpeed') or 0 for m in mods])
+ lines=[]
+ if any(t.startswith('LP') for t in types):
+  return [f'Memory type: {kind}. LPDDR memory is always soldered to the motherboard, so it cannot be upgraded or replaced.']
+ forms={m.get('FormFactor') for m in mods}
+ removable=len(forms)==1 and next(iter(forms)) in FORM_FACTORS
+ if removable:
+  lines.append(f'Memory type: {kind} {FORM_FACTORS[next(iter(forms))]}. Windows reports {len(mods)} separate removable module(s), so this RAM is not soldered.')
+ else:
+  lines.append(f'Memory type: {kind}. Windows does not identify all modules as removable (form factor codes {sorted(str(f) for f in forms)}), so some memory may be soldered. Check the manufacturer specifications.')
+ if removable and isinstance(slots,int) and slots>0:
+  if slots>len(mods):
+   lines.append(f'Slots: {slots} reported, {len(mods)} in use, so {slots-len(mods)} may be free. You could add a matching module.')
+  elif sizes:
+   bigger=max(sizes)*2
+   lines.append(f'Slots: {slots} reported and all are in use. To get more RAM you would replace the modules with larger ones, for example {len(mods)} × {bigger} GB = {bigger*len(mods)} GB.')
+ if isinstance(max_kb,int) and max_kb>0:
+  lines.append(f'Firmware-reported maximum: {max_kb/1048576:g} GB. This is often higher than the manufacturer officially supports, so check the manufacturer specification (for Lenovo, PSREF) before buying more than {sum(sizes)} GB.')
+ if removable:
+  lines.append(f'Matching modules: {kind} {FORM_FACTORS[next(iter(forms))]}, {speed} MT/s or faster. Replace modules in matched pairs for dual-channel speed.')
+ lines.append('Windows reads these details from the laptop firmware, which is usually but not always accurate. The manufacturer specification is the final word.')
+ return lines

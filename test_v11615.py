@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 import dashboard
 import parts_research
-from hardware_advisor import clean_product_name
+from hardware_advisor import clean_product_name, ram_summary
 from intent_engine import classify
 
 PENDING = {'pending_research': 'RAM'}
@@ -165,6 +165,34 @@ class TestHardwareHelpers(unittest.TestCase):
         self.assertEqual(clean_product_name('LOQ 15IRH8'), 'LOQ 15IRH8')
         for junk in ('To be filled by O.E.M.', '1.0', '', None, 'System Version'):
             self.assertEqual(clean_product_name(junk), '')
+
+
+class TestRamSummary(unittest.TestCase):
+    def inv(self, mods, slots=2, max_kb=67108864):
+        return {'Modules': mods, 'Arrays': [{'MemoryDevices': slots, 'MaxCapacityEx': max_kb}]}
+
+    stick = {'Capacity': 8589934592, 'Speed': 5600, 'FormFactor': 12, 'SMBIOSMemoryType': 34}
+
+    def test_this_laptop_two_sodimms_full(self):
+        text = ' '.join(ram_summary(self.inv([self.stick, self.stick])))
+        self.assertIn('DDR5 SO-DIMM', text)
+        self.assertIn('not soldered', text)
+        self.assertIn('2 × 16 GB = 32 GB', text)
+        self.assertIn('Firmware-reported maximum: 64 GB', text)
+
+    def test_free_slot(self):
+        self.assertIn('1 may be free', ' '.join(ram_summary(self.inv([self.stick]))))
+
+    def test_lpddr_is_soldered(self):
+        text = ram_summary(self.inv([dict(self.stick, SMBIOSMemoryType=35, FormFactor=0)]))
+        self.assertEqual(len(text), 1)
+        self.assertIn('always soldered', text[0])
+
+    def test_unclear_form_factor_does_not_claim_removable(self):
+        text = ' '.join(ram_summary(self.inv([self.stick, dict(self.stick, FormFactor=0)])))
+        self.assertIn('some memory may be soldered', text)
+        self.assertNotIn('not soldered', text)
+        self.assertNotIn('2 × 16 GB', text)
 
 
 class TestHttpContracts(unittest.TestCase):
