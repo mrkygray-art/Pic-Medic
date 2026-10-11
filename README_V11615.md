@@ -36,6 +36,13 @@
 - **Custom-built PCs.** When the manufacturer or model is a placeholder ("To Be Filled By O.E.M.", "System Product Name"), the motherboard becomes the identity (`IdentitySource: motherboard`). Parts research accepts maker names with commas and knows the Gigabyte, ASRock and Biostar sites.
 - **One Windows account only** (`local_security.py`). Each request's connection is matched to its process through Windows' TCP table, and that process's account must match the server's. Anything unverifiable is refused. The server binds its port exclusively, so no other account can bind on top of it, and moves to the next free port if 8765 is taken.
 
+## Answering any question
+- **Answer modes:** Offline only, **Smart** (the default) and Claude. In Smart mode the built-in engine answers when it can. Questions it does not recognize (`clarify` and `howto` intents) go to Claude, or to ChatGPT if only an OpenAI key exists, after a one-time consent. With no AI service, a problem description starts the AI-guided Health Check. Otherwise PC Medic shows Ask Claude, Ask ChatGPT, Run Health Check and Run Performance Watch buttons.
+- **Gaming:** "Can this run games?" is answered offline from the strongest real graphics adapter (virtual display drivers are ignored), plus RAM and laptop power advice.
+- **API keys:** the server reads `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` from the user's saved environment (`HKCU\Environment`) when the launching window predates `setx`.
+- **Startup:** the answer box starts empty. The last Health Check summary appears only after a Health Check runs.
+- **Known limitation:** the ChatGPT path reuses the original `ai_engine` analysis prompt. It cannot run checks or search the web, and it frames answers around the latest Health Check, so Claude gives much better general answers.
+
 ## Tests
 `python -m unittest discover -p "test_*.py"` runs the full suite (about 70 tests): the handoff acceptance table, research labels and citations (Claude mocked, no cost), the no-key behavior, HTTP contracts, foreign-host rejection, the cross-window lock and collector mode.
 

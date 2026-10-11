@@ -27,12 +27,15 @@ def classify(question, context=None):
         if reply=='affirm':return {'intent':'research_confirm','scan':'none'}
         if reply=='decline':return {'intent':'research_decline','scan':'none'}
     elif _reply_kind(q)=='affirm':
-        return {'intent':'clarify','scan':'none','answer':'There is no search waiting for approval right now. Tell me which part you want researched, for example "I need a new charger" or "Can I upgrade my RAM?".'}
+        return {'intent':'no_pending_offer','scan':'none','answer':'There is no search waiting for approval right now. Tell me which part you want researched, for example "I need a new charger" or "Can I upgrade my RAM?".'}
     # Replacement parts are shopping/research requests, not battery-health or charging advice.
     if has(r'\b(charger|power adapter|ac adapter|charging brick|power brick|power supply)\b') and not has(r'\b(not charging|won.t charge|isn.t charging|stopped charging|charging slow\w*)\b'):
         return {'intent':'replacement_part','part':'replacement laptop charger','scan':'none'}
     if has(r'\b(batter(y|ies))\b') and has(r'\b(replace\w*|new|buy|purchase|order|need|find|where can i|swap)\b') and not has(r'\b(drain\w*|health|life|report|lasting|dies fast)\b'):
         return {'intent':'replacement_part','part':'replacement laptop battery','scan':'none'}
+    # "Can it run games?" is answered from the graphics card, processor and RAM.
+    if has(r'\b(games?|gaming|gamer|fps|frame ?rate|steam|fortnite|minecraft|roblox|valorant|call of duty|gta|cyberpunk|elden ring)\b') and not has(r'\b(crash\w*|freez\w*|lag\w*|stutter\w*|won.t (start|launch|open))\b'):
+        return {'intent':'gaming','scan':'none'}
     # Questions a read-only Windows check can answer directly (system_checks.py).
     checks=[
         ('battery',r'\bbatter(y|ies)\b.*\b(health|life|wear\w*|capacity|drain\w*|cycles?|condition|report|dies|lasting|lasts|hold\w*|good|ok)\b|\bhow (is|good is) my battery\b'),

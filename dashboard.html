@@ -63,7 +63,7 @@ body.dark .bubble.user{background:#3b7be6}
 .answer-mode{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:8px 0 2px}
 .answer-mode .seg button:disabled{opacity:.45;cursor:not-allowed}
 </style></head><body><div class="app"><aside><div class="brand"><div class="brand-icon">⌁</div><div><strong>PC Medic AI</strong><small>Know your computer</small></div></div><nav class="nav" aria-label="Main navigation"><button data-tab="home" class="active"><span>⌂</span> Overview</button><button data-tab="performance"><span>⌁</span> Performance</button><button data-tab="storage"><span>▣</span> Storage</button><button data-tab="explorer"><span>⌕</span> Storage Explorer</button><button data-tab="devices"><span>⌘</span> Devices &amp; Drivers</button><button data-tab="windows-tools"><span>▦</span> Windows Tools</button><button data-tab="advanced"><span>⚠</span> Advanced</button><button data-tab="findings"><span>◈</span> Findings</button><button data-tab="system"><span>⚙</span> System Details</button></nav><div class="side-bottom"><div>PC Medic AI 1.16.15</div><div style="margin-top:9px"><span class="dot"></span>Local diagnostic server</div></div></aside><main><header class="top"><div><h1>PC Medic AI</h1><p>One health check. Clear answers. Your computer, understood.</p></div><div class="actions"><span class="status" id="status">● Loading report</span><button id="theme" class="themebtn" aria-label="Toggle light and dark theme">◐</button></div></header>
-<section id="home" class="navsection active"><div class="assistant-intro" id="assistant-intro"><section class="panel" id="home-console"><div class="sectionhead"><h2>✧ PC Medic AI — Your Diagnostic Assistant</h2><span class="pill">AI-led · Private by default</span></div><p>Tell PC Medic what is wrong, or press one button to scan your computer. PC Medic reviews the findings, explains the verdict and prepares the next steps. You choose when to contact Claude or OpenAI.</p><div id="health-availability" class="health-availability ready" role="status" aria-live="polite"><strong id="health-availability-title">READY FOR HEALTH CHECK</strong><small id="health-availability-detail">No Performance Watch is running. You can start a health check.</small></div><label class="symptom-label" for="pc-question">Ask PC Medic a question or describe a problem</label><div class="pc-question-wrap"><input id="pc-question" type="text" maxlength="500" autocomplete="off" placeholder="Type here: What graphics card do I have? Can I add RAM? My computer froze..." aria-label="Type your question to PC Medic"></div><div class="answer-mode"><span class="muted small">Answer with</span><div class="seg" role="group" aria-label="Answer with"><button type="button" data-mode="offline" class="active">Offline · Private</button><button type="button" data-mode="claude">Claude · AI investigation</button></div><span id="mode-note" class="muted small">Offline answers never leave this PC.</span></div><details id="conversation" class="conversation" open hidden><summary><span id="conversation-count">Earlier in this conversation</span><button type="button" id="conversation-clear" class="secondary">Clear</button></summary><div id="conversation-log" class="conversation-log" aria-label="Earlier questions and answers"></div></details><label class="symptom-label" for="symptom">PC Medic's assessment <span class="muted">— Investigation results and explanations appear here</span></label><textarea class="symptom-input" id="symptom" readonly placeholder="PC Medic will show its answer and findings here. Type your question in the field above."></textarea><div class="tools bottom-ask"><span class="muted small">Type above and press Enter or Ask PC Medic. Follow-up answers work here too.</span><button class="primary" id="open-assistant" type="button">✧ Ask PC Medic</button></div><div class="tools manual-scan"><span class="muted small">Or run the full diagnostic manually</span><span class="actions"><button class="secondary" id="tech-report" type="button">▤ Technician report</button><button class="secondary" id="run-check">▶ Run AI-guided Health Check</button></span></div><div id="assistant-status" class="assist-status" role="status" aria-live="polite">Scan results and AI answers appear in the assessment field above.</div><div class="muted-note">Diagnostic scans run locally. Cloud AI is optional and always requires approval.</div></section></div><div id="verdict" class="hidden" aria-hidden="true"><h2 id="verdict-title"></h2><p id="verdict-desc"></p><div id="verdict-next"></div></div><button class="hidden" id="run-again" type="button">Run another check</button><div class="panel hidden" id="run-progress" style="margin-bottom:16px"><div class="row"><strong id="run-stage">Preparing...</strong><button class="secondary" id="stop-check">Stop</button></div><div class="progress"><div id="run-bar"></div></div><div class="muted small" id="run-progress-text">Waiting to begin</div></div><div class="grid" id="metrics"></div><div class="grid" id="hardware-extras"><div class="panel metric"><div class="label">Drive health</div><div class="number">Not verified</div><small>SMART, SSD wear and temperature require supported device telemetry. Free space is not drive health.</small></div><div class="panel metric"><div class="label">Thermals &amp; fans</div><div class="number">Unavailable</div><small>CPU/GPU temperatures, fan speeds and throttling are not reliably exposed by this Windows collector.</small></div></div><div class="twocol"><section class="panel"><div class="sectionhead"><h2>What PC Medic found</h2><span class="pill" id="issue-count">No findings yet</span></div><p class="muted small"><strong>Include in AI investigation</strong> — checked findings are added to your AI question. Uncheck to leave one out. This does not fix, delete, or dismiss any problem.</p><div id="issues" class="stack"><div class="empty">Run a health check to review your computer.</div></div><button class="subtle" id="show-all-findings">View all findings →</button></section></div><div class="grid below" id="quick-details" style="grid-template-columns:repeat(3,minmax(0,1fr))"></div></section>
+<section id="home" class="navsection active"><div class="assistant-intro" id="assistant-intro"><section class="panel" id="home-console"><div class="sectionhead"><h2>✧ PC Medic AI — Your Diagnostic Assistant</h2><span class="pill">AI-led · Private by default</span></div><p>Tell PC Medic what is wrong, or press one button to scan your computer. PC Medic reviews the findings, explains the verdict and prepares the next steps. You choose when to contact Claude or OpenAI.</p><div id="health-availability" class="health-availability ready" role="status" aria-live="polite"><strong id="health-availability-title">READY FOR HEALTH CHECK</strong><small id="health-availability-detail">No Performance Watch is running. You can start a health check.</small></div><label class="symptom-label" for="pc-question">Ask PC Medic a question or describe a problem</label><div class="pc-question-wrap"><input id="pc-question" type="text" maxlength="500" autocomplete="off" placeholder="Type here: What graphics card do I have? Can I add RAM? My computer froze..." aria-label="Type your question to PC Medic"></div><div class="answer-mode"><span class="muted small">Answer with</span><div class="seg" role="group" aria-label="Answer with"><button type="button" data-mode="offline">Offline only</button><button type="button" data-mode="smart" class="active">Smart</button><button type="button" data-mode="claude">Claude</button></div><span id="mode-note" class="muted small"></span></div><details id="conversation" class="conversation" open hidden><summary><span id="conversation-count">Earlier in this conversation</span><button type="button" id="conversation-clear" class="secondary">Clear</button></summary><div id="conversation-log" class="conversation-log" aria-label="Earlier questions and answers"></div></details><label class="symptom-label" for="symptom">PC Medic's assessment <span class="muted">— Investigation results and explanations appear here</span></label><textarea class="symptom-input" id="symptom" readonly placeholder="PC Medic will show its answer and findings here. Type your question in the field above."></textarea><div class="tools bottom-ask"><span class="muted small">Type above and press Enter or Ask PC Medic. Follow-up answers work here too.</span><button class="primary" id="open-assistant" type="button">✧ Ask PC Medic</button></div><div class="tools manual-scan"><span class="muted small">Or run the full diagnostic manually</span><span class="actions"><button class="secondary" id="tech-report" type="button">▤ Technician report</button><button class="secondary" id="run-check">▶ Run AI-guided Health Check</button></span></div><div id="assistant-status" class="assist-status" role="status" aria-live="polite">Scan results and AI answers appear in the assessment field above.</div><div class="muted-note">Diagnostic scans run locally. Cloud AI is optional and always requires approval.</div></section></div><div id="verdict" class="hidden" aria-hidden="true"><h2 id="verdict-title"></h2><p id="verdict-desc"></p><div id="verdict-next"></div></div><button class="hidden" id="run-again" type="button">Run another check</button><div class="panel hidden" id="run-progress" style="margin-bottom:16px"><div class="row"><strong id="run-stage">Preparing...</strong><button class="secondary" id="stop-check">Stop</button></div><div class="progress"><div id="run-bar"></div></div><div class="muted small" id="run-progress-text">Waiting to begin</div></div><div class="grid" id="metrics"></div><div class="grid" id="hardware-extras"><div class="panel metric"><div class="label">Drive health</div><div class="number">Not verified</div><small>SMART, SSD wear and temperature require supported device telemetry. Free space is not drive health.</small></div><div class="panel metric"><div class="label">Thermals &amp; fans</div><div class="number">Unavailable</div><small>CPU/GPU temperatures, fan speeds and throttling are not reliably exposed by this Windows collector.</small></div></div><div class="twocol"><section class="panel"><div class="sectionhead"><h2>What PC Medic found</h2><span class="pill" id="issue-count">No findings yet</span></div><p class="muted small"><strong>Include in AI investigation</strong> — checked findings are added to your AI question. Uncheck to leave one out. This does not fix, delete, or dismiss any problem.</p><div id="issues" class="stack"><div class="empty">Run a health check to review your computer.</div></div><button class="subtle" id="show-all-findings">View all findings →</button></section></div><div class="grid below" id="quick-details" style="grid-template-columns:repeat(3,minmax(0,1fr))"></div></section>
 
 <section id="performance" class="navsection"><div class="panel"><div class="sectionhead"><h2>Performance</h2><span class="pill" id="perf-count">No samples</span></div><p class="muted small">Performance Watch is a separate diagnostic. It cannot run during the AI-guided Health Check; wait for the current scan to finish.</p><div class="grid below" id="perf-metrics"></div><div id="watch-banner" class="watch-banner idle" role="status" aria-live="polite"><span id="watch-banner-icon">◌</span><div><strong id="watch-banner-title">Ready to monitor</strong><small id="watch-banner-detail">Select a duration and start a watch, or run the full health check.</small></div></div><svg id="perf-chart" class="chart" viewBox="0 0 700 180" preserveAspectRatio="none" role="img" aria-label="CPU, memory and disk utilization trends"></svg><div class="muted small">Blue: CPU · Green: memory used · Orange: disk busy. The same graph displays health-check samples or the active watch.</div><div class="actions below"><button id="export" class="secondary" disabled>Export local report (JSON)</button><label for="watch-duration" class="muted small">Watch duration</label><select id="watch-duration" aria-label="Watch duration"><option value="1">1 minute</option><option value="3" selected>3 minutes</option><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="30">30 minutes</option></select><button id="watch-start" class="secondary">Start watch</button><button id="watch-stop" class="secondary" disabled>Stop &amp; Analyze</button></div><div id="watch-status" class="assist-note" role="status">Spike monitoring is off. Keep this browser tab open while watching.</div><div id="watch-summary" class="assist-note">No monitoring session completed yet.</div><div class="actions below"><button id="watch-ai" class="primary" disabled>Ask PC Medic to Analyze</button><button id="watch-export" class="secondary" disabled>Export watch report (JSON)</button></div><div id="watch-events" class="stack below"></div><div class="panel below" style="box-shadow:none"><div class="sectionhead"><h3>Scan history &amp; trends</h3><button id="history-refresh" class="secondary">Refresh</button></div><p class="muted small">Saved locally: timestamps, utilization percentages, and finding counts only. Latest 100 completed scans; no raw logs or process names saved.</p><div id="history-results" class="stack below">No saved scans yet.</div><div id="history-compare" class="assist-note"></div></div><details class="technical"><summary>Process memory measurements</summary><pre id="process-output">No process measurements yet.</pre></details></div></section>
 <section id="storage" class="navsection"><div class="panel"><h2>Storage</h2><p class="muted small">Optimize Drives uses Windows to choose SSD TRIM or HDD defragmentation. PC Medic does not defragment automatically.</p><button id="open-optimize" class="secondary" type="button">Open Windows Optimize Drives</button><button id="disk-health-scan" class="primary" type="button">Scan for Disk Health</button><div id="disk-health-results" class="disk-health-results" role="status" aria-live="polite">Run a read-only disk health scan to inspect available Windows reliability counters.</div><div id="disk-forecast" class="assist-note">Disk-space forecast needs historical scans.</div><div id="optimize-status" class="muted small below"></div><p class="muted small">Free space and total capacity for each detected volume.</p><div class="detail-grid below" id="storage-details"></div></div></section>
@@ -135,15 +135,18 @@ function archiveTurn(){
 }
 $('conversation-clear').onclick=e=>{e.preventDefault();$('conversation-log').replaceChildren();$('conversation').hidden=true;};
 // Claude mode: questions go to assistant.py, which runs read-only checks and explains them.
-let answerMode='offline',claudeReady=false,claudeModel='Claude',claudeConsent=false,claudeConversation=null;
-try{if(localStorage.getItem('pcmedic-answer-mode')==='claude')answerMode='claude'}catch(e){}
+let answerMode='smart',claudeReady=false,claudeModel='Claude',claudeConsent=false,claudeConversation=null;
+try{const saved=localStorage.getItem('pcmedic-answer-mode');if(['offline','smart','claude'].includes(saved))answerMode=saved}catch(e){}
 function renderAnswerMode(){
- if(!claudeReady)answerMode='offline';
+ if(answerMode==='claude'&&!claudeReady)answerMode='smart';
  document.querySelectorAll('[data-mode]').forEach(b=>{b.classList.toggle('active',b.dataset.mode===answerMode);if(b.dataset.mode==='claude'){b.disabled=!claudeReady;b.title=claudeReady?'':'Set ANTHROPIC_API_KEY on this PC to enable Claude.'}});
- $('mode-note').textContent=answerMode==='claude'?'Claude chooses which read-only checks to run. Each question costs a few cents.':claudeReady?'Offline answers never leave this PC.':'Offline answers never leave this PC. Claude is not set up (no API key).';
+ const ai=claudeReady?'Claude':openaiReady?'ChatGPT':'';
+ $('mode-note').textContent=answerMode==='offline'?'Only PC Medic’s built-in engine answers. Nothing leaves this PC.'
+  :answerMode==='claude'?'Every question goes to Claude, which runs read-only checks. Each question costs a few cents.'
+  :ai?`PC Medic answers on this PC when it can and asks ${ai} (with your approval) when it can’t.`:'PC Medic answers on this PC. No AI service is set up, so unrecognized problems start a Health Check.';
 }
 document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{answerMode=b.dataset.mode;try{localStorage.setItem('pcmedic-answer-mode',answerMode)}catch(e){}renderAnswerMode();$('pc-question').focus();});
-fetch('/api/assistant-status',{cache:'no-store'}).then(r=>r.json()).then(x=>{claudeReady=!!x.configured;claudeModel=x.model||claudeModel;renderAnswerMode();}).catch(()=>renderAnswerMode());
+fetch('/api/assistant-status',{cache:'no-store'}).then(r=>r.json()).then(x=>{claudeReady=!!x.configured;openaiReady=!!x.openai;claudeModel=x.model||claudeModel;renderAnswerMode();}).catch(()=>renderAnswerMode());
 async function ensureClaudeConsent(){
  if(claudeConsent)return true;
  claudeConsent=await pcConfirm('Use Claude for this conversation?',`Claude (${claudeModel}) will receive your questions and the results of the read-only checks it chooses to run: computer model and hardware, Windows version, battery and disk health, crash and update history, error-log summaries, performance numbers and network adapter status.\n\nNever sent: serial numbers, your user or computer name, IP or MAC addresses, file names, or program and process names.\n\nClaude may also search the web. Each question costs roughly $0.05–$0.25, billed to your Anthropic account. The checks it ran are listed under every answer.`,'Use Claude');
@@ -151,13 +154,13 @@ async function ensureClaudeConsent(){
 }
 function offerClaude(question){
  document.getElementById('claude-offer')?.remove();
- if(!claudeReady)return;
+ if(answerMode==='offline'||(!claudeReady&&!openaiReady))return;
  const row=html('div','actions below');row.id='claude-offer';
- const b=html('button','primary','✧ Ask Claude instead');b.type='button';b.onclick=async()=>{row.remove();archiveTurn();currentQuestion=question;await askClaude(question);};
+ const b=html('button','primary',claudeReady?'✧ Ask Claude instead':'Ask ChatGPT instead');b.type='button';b.onclick=async()=>{row.remove();archiveTurn();currentQuestion=question;await (claudeReady?askClaude:askChatGPT)(question);};
  row.append(html('span','muted small','PC Medic’s offline rules could not fully answer this.'),b);$('assistant-status').after(row);
 }
 async function askClaude(question){
- if(!await ensureClaudeConsent()){$('symptom').value='Your question: '+question+'\n\nClaude was not used, so nothing left this PC.';$('assistant-status').textContent='Claude not used · Nothing was sent.';return;}
+ if(!await ensureClaudeConsent()){$('symptom').value='Your question: '+question+'\n\nClaude was not used, so nothing left this PC.';$('assistant-status').textContent='Claude not used · Nothing was sent.';return false;}
  $('assistant-status').textContent='Claude is investigating · it picks the read-only checks it needs (usually 15–60 seconds)…';
  $('symptom').value='Claude is looking into this…';
  try{
@@ -192,6 +195,83 @@ $('tech-report').onclick=async()=>{
  }catch(e){win?.close();$('assistant-status').textContent='Report could not be built: '+e.message;}
  finally{button.disabled=false;}
 };
+// Fallback engine: when the offline rules have no answer, Smart mode asks Claude (or ChatGPT),
+// and with no AI service a problem description starts the AI-guided Health Check.
+let openaiReady=false,openaiConsent=false;
+const PROBLEM_WORDS=/\b(not working|won.?t|can.?t|cannot|doesn.?t|isn.?t|broken|errors?|problems?|issues?|wrong|keeps|stopped|fail\w*|stuck|weird|strange|help)\b/i;
+async function askChatGPT(question){
+ if(!openaiConsent)openaiConsent=await pcConfirm('Ask ChatGPT (OpenAI)?','OpenAI will receive your question and a sanitized summary of your latest Health Check and performance numbers: findings, memory, disk space and event IDs.\n\nNever sent: serial numbers, your user or computer name, IP or MAC addresses, or file, program and process names.\n\nChatGPT in PC Medic answers from that summary; it cannot run new checks or search the web. Usage is billed to your OpenAI account.','Ask ChatGPT');
+ if(!openaiConsent){$('assistant-status').textContent='ChatGPT not used · Nothing was sent.';return false;}
+ $('assistant-status').textContent='Asking ChatGPT (OpenAI)…';
+ $('symptom').value='ChatGPT is looking into this…';
+ try{
+  const p=await request('/api/ai-ask',{question:question.slice(0,500),provider:'openai',consent:true,tool_approved:false,investigation:performanceEvidence()});
+  $('symptom').value=(p.answer||'ChatGPT returned no answer.')+'\n\nAnswer by ChatGPT (OpenAI) from your latest Health Check summary; verify important details.';
+  $('assistant-status').textContent='ChatGPT answered · Ask a follow-up in the question field.';
+ }catch(e){$('symptom').value='Your question: '+question+'\n\nChatGPT could not answer: '+e.message;$('assistant-status').textContent='ChatGPT unavailable · '+e.message;}
+ return true;
+}
+function showFallbackChoices(question,problem){
+ document.getElementById('fallback-choices')?.remove();
+ const row=html('div','actions below');row.id='fallback-choices';
+ const add=(label,primary,fn)=>{const b=html('button',primary?'primary':'secondary',label);b.type='button';b.onclick=async()=>{row.remove();await fn();};row.append(b);};
+ const reask=fn=>()=>{archiveTurn();currentQuestion=question;return fn(question);};
+ if(claudeReady)add('✧ Ask Claude',!problem,reask(askClaude));
+ if(openaiReady)add('Ask ChatGPT',!problem&&!claudeReady,reask(askChatGPT));
+ add('▶ Run AI-guided Health Check',problem,async()=>{userSymptom=question;guidedPending={kind:'health'};try{await healthCheck();}finally{guidedPending=null;}});
+ add('Run 1-minute Performance Watch',false,async()=>{$('watch-duration').value='1';switchTab('performance');await runWatch();switchTab('home');});
+ $('assistant-status').after(row);
+}
+async function fallbackAnswer(question){
+ const problem=PROBLEM_WORDS.test(question);
+ if(answerMode!=='offline'){
+  if(claudeReady&&await askClaude(question)!==false)return;
+  if(!claudeReady&&openaiReady&&await askChatGPT(question)!==false)return;
+  if(!claudeReady&&!openaiReady&&problem){
+   $('symptom').value='Your reported problem: '+question+'\n\nPC Medic does not recognize this problem offline and no AI service is set up, so it is running the AI-guided Health Check to look for evidence…';
+   userSymptom=question;guidedPending={kind:'health'};
+   try{await healthCheck();}finally{guidedPending=null;}
+   return;
+  }
+ }
+ $('symptom').value='Your question: '+question+'\n\nPC Medic’s built-in engine does not have an answer for this yet.'+(answerMode==='offline'?' You chose Offline only, so no AI service was contacted.':(!claudeReady&&!openaiReady?' No AI service is set up on this PC.':''))+'\n\nChoose what to do next below.';
+ $('assistant-status').textContent='Waiting for your choice · Nothing has been sent.';
+ showFallbackChoices(question,problem);
+}
+// "Can it run games?" from the graphics hardware: a rough guide, not a guarantee.
+const NOT_A_GPU=/anyviewer|displaylink|basic display|basic render|remote|virtual|idd|parsec|citrix|vmware|hyper-v|mirror/i;
+const DISCRETE_GPU=/nvidia|geforce|quadro|\brtx\b|\bgtx\b|radeon rx|radeon pro|\barc a\d/i;
+function gpuTier(name){
+ if(/rtx\s?\d{2}[7-9]0|rx\s?\d[7-9]\d{2}\b/i.test(name))return 'high';
+ if(/rtx\s?(2060|30[56]0|40[56]0|50[56]0)|gtx\s?16\d0|rx\s?(5[67]00|6[56]\d0|7600)|arc a[57]/i.test(name))return 'mid';
+ if(/rtx\s?2050|\bmx\s?\d{3}|gtx\s?(9|10)\d0|rx\s?[45][456]0|arc a3/i.test(name))return 'entry';
+ return DISCRETE_GPU.test(name)?'dedicated':'integrated';
+}
+async function answerGaming(question){
+ $('assistant-status').textContent='Checking graphics, memory and computer type · Offline · Read-only…';
+ $('symptom').value='Your question: '+question+'\n\nChecking this computer’s gaming hardware…';
+ try{
+  const d=(await getJSON('/api/hardware-upgrade')).hardware||{};
+  const gpus=arr(d.Video).map(x=>String(x.Name||'')).filter(n=>n&&!NOT_A_GPU.test(n));
+  const order=['high','mid','dedicated','entry','integrated'];
+  const best=gpus.map(n=>({n,t:gpuTier(n)})).sort((a,b)=>order.indexOf(a.t)-order.indexOf(b.t))[0];
+  const ram=Number(d.TotalPhysicalMemory)/1073741824;
+  const verdict=!best?'Windows did not report a graphics adapter, so PC Medic cannot judge gaming performance.':{
+   high:`Yes, very well. ${best.n} is a high-end gaming graphics card: current games run at high settings, often above 1080p.`,
+   mid:`Yes. ${best.n} is a solid mainstream gaming graphics card: most current games run at 1080p on medium to high settings.`,
+   dedicated:`Probably, for many games. It has a dedicated graphics card (${best.n}), which is built for gaming; check each game's requirements.`,
+   entry:`Yes, for many games at modest settings. ${best.n} is an entry-level gaming graphics chip: popular games such as Fortnite, Minecraft, Roblox, Valorant and older titles run well at 1080p on low to medium settings. Demanding new releases need low settings and may still be choppy.`,
+   integrated:`Light games only. This computer has integrated graphics (${best.n}), which can run Minecraft, Roblox, indie and older games at low settings. Modern 3D games will struggle.`}[best.t];
+  const lines=['Your question: '+question,'Computer: '+computerName(d)+' ('+deviceLabel(d).toLowerCase()+')',verdict];
+  if(gpus.length>1)lines.push('Graphics adapters found: '+gpus.join(', ')+'. Games should use the most powerful one.');
+  if(Number.isFinite(ram)&&ram>0)lines.push(`Memory: ${ram.toFixed(0)} GB, `+(ram>=15?'the amount most games recommend.':ram>=7?'the minimum for most current games; 16 GB is recommended.':'below what most current games need.'));
+  if(d.DeviceType==='laptop')lines.push('On a laptop, plug in the charger and choose the best-performance power mode for the highest frame rates.');
+  lines.push('This is a rough guide from the hardware. Ask about a specific game to compare it with that game’s requirements.');
+  $('symptom').value=lines.join('\n\n');
+  $('assistant-status').textContent='Gaming check complete · Offline · Read-only.';
+  offerClaude(question);
+ }catch(e){$('symptom').value='Your question: '+question+'\n\nThe gaming check could not finish: '+e.message;$('assistant-status').textContent='Gaming check unavailable.';}
+}
 let pendingClarification=null;
 let pendingResearch=null;
 let conversationContext={lastQuestion:'',lastTopic:'',lastHardware:null};
@@ -455,7 +535,7 @@ async function startGuidedDiagnosis(){
  try{understanding=await request('/api/intent',{question:userSymptom,context:{pending_research:pendingResearch?pendingResearch.kind:null}});}
  catch(e){$('assistant-status').textContent='Offline understanding unavailable: '+e.message+'. No scan started.';return;}
  const intent=understanding.intent;
- document.getElementById('claude-offer')?.remove();
+ document.getElementById('claude-offer')?.remove();document.getElementById('fallback-choices')?.remove();
  if(answerMode==='claude'&&claudeReady&&intent!=='open_tool'){clearResearchOffer();document.getElementById('port-choices')?.remove();document.getElementById('memory-choices')?.remove();await askClaude(typed);return;}
  if(intent==='research_confirm'){await prepareUpgradeResearch();return;}
  if(intent==='research_decline'){clearResearchOffer();$('assistant-status').textContent='Staying offline. No information was shared.';return;}
@@ -464,6 +544,8 @@ async function startGuidedDiagnosis(){
  if(intent==='replacement_part'){if(/charger/.test(understanding.part))await investigateReplacementCharger(userSymptom);else await investigateReplacementPart(userSymptom,understanding.part);return;}
  if(intent==='open_tool'){await openRequestedUtility(userSymptom,understanding.tool);return;}
  if(intent==='ports_clarify'){showPortsClarification(userSymptom);return;}
+ if(intent==='gaming'){await answerGaming(userSymptom);return;}
+ if(intent==='clarify'||intent==='howto'){await fallbackAnswer(typed);return;}
  if(intent==='system_check'){await answerSystemCheck(userSymptom,understanding.check);return;}
  if(intent==='network_inventory'){await answerNetworkQuestion(userSymptom);return;}
  if(intent==='hardware_inventory'){await answerInventoryQuestion(userSymptom);return;}
@@ -517,7 +599,7 @@ function updateVerdict(){
  $('verdict-title').textContent=title;
  $('verdict-desc').textContent=!reportReady?'Run your first check to get a verdict.':findings.length?`${findings.length} observation(s) to review. Findings are not confirmed faults.`:'No issues flagged by the available rule-based checks. This does not guarantee hardware health.';
  const next=$('verdict-next');next.replaceChildren();findings.slice(0,3).forEach((x,i)=>next.append(html('div','',`${i+1}. ${x.title} — ${x.detail}`)));
- if(reportReady&&!findings.length)next.textContent='Next: No action needed right now unless you are experiencing symptoms.';updateAssessment();
+ if(reportReady&&!findings.length)next.textContent='Next: No action needed right now unless you are experiencing symptoms.';
 }
 function buildIssues(){const prior=new Set(selected);issues=[];const fs=analysis?.findings||[];for(let i=0;i<fs.length;i++){const f=fs[i];addIssue(f.title||'Diagnostic finding',f.evidence||f.recommended_next_step||'Review recommended',f.severity||'info',`Please explain this finding, what it means and safe next steps: ${f.title||'diagnostic finding'}.`, 'scan-'+i)}const memFinding=issues.find(x=>/memory/i.test(x.title));if(memFinding&&processSamples.length){const ps=arr(processSamples.at(-1)?.processes).slice(0,3);if(ps.length)memFinding.detail+=' · Top resident processes: '+ps.map(x=>`${x.name||'Unknown'} ${x.working_set_mb??'?'} MB`).join(', ');}const v=k=>perfSamples.map(s=>s[k]).filter(finite);const cpu=v('cpu_percent'),memory=v('memory_used_percent'),avail=v('memory_available_mb');if(cpu.length&&Math.max(...cpu)>=90)addIssue('High CPU sample observed',`Peak ${fmt(Math.max(...cpu))}% during investigation`,'warning','Investigate high CPU utilization and suggest safe next steps.','cpu');if(memory.length&&Math.max(...memory)>=90)addIssue('High memory utilization observed',`Peak ${fmt(Math.max(...memory))}% during investigation`,'warning','Investigate memory pressure and suggest safe next steps.','memory');if(avail.length&&Math.min(...avail)<512)addIssue('Very little available RAM observed',`Minimum ${fmt(Math.min(...avail),0)} MB available`,'warning','Investigate low available RAM and explain possible effects.','available');selected=new Set(issues.map(x=>x.id));renderIssues();syncFindingQuestion();updateVerdict();}
 function renderIssues(){const roots=[$('issues'),$('all-findings')];for(const root of roots){root.replaceChildren();if(!issues.length){root.append(html('div','empty',reportReady?'No rule-based concerns flagged by the latest scan. You can still ask PC Medic a question.':'Run a health check to see findings.'));continue}issues.forEach(issue=>{const row=html('label','issue'),check=html('input');check.type='checkbox';check.checked=selected.has(issue.id);check.addEventListener('change',()=>{if(check.checked)selected.add(issue.id);else selected.delete(issue.id);renderIssues();syncFindingQuestion();});const ico=html('span','issueicon '+(issue.severity==='info'?'info':''),issue.severity==='info'?'i':'!'),txt=html('div');txt.append(html('strong','',issue.title),html('small','',issue.detail));row.append(check,ico,txt);root.append(row)})} $('issue-count').textContent=issues.length+' finding'+(issues.length===1?'':'s');$('evidence-note').textContent=`Latest system scan${perfSamples.length?' + '+perfSamples.length+' performance samples':''} used automatically. ${selected.size} finding${selected.size===1?'':'s'} selected. No cloud sharing without approval.`;}

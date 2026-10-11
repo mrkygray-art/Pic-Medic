@@ -60,7 +60,7 @@ class TestIntentAcceptance(unittest.TestCase):
 
     def test_affirmation_without_offer_does_not_research(self):
         r = classify('Yes, research it')
-        self.assertEqual(r['intent'], 'clarify')
+        self.assertEqual(r['intent'], 'no_pending_offer')  # not sent to the AI fallback as a new question
         self.assertIn('no search waiting', r['answer'])
 
     def test_new_question_while_offer_pending_is_not_a_reply(self):

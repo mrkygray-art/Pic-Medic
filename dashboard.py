@@ -363,7 +363,7 @@ class Handler(BaseHTTPRequestHandler):
   if path=='/api/hardware-upgrade':
    try: return self.send_json({'hardware':hardware_inventory()})
    except Exception as exc: return self.send_json({'hardware':{'available':False,'reason':'Windows hardware collector encountered an error ('+type(exc).__name__+').'}},200)
-  if path=='/api/assistant-status':return self.send_json({'configured':assistant.configured(),'model':assistant.MODEL})
+  if path=='/api/assistant-status':return self.send_json({'configured':assistant.configured(),'model':assistant.MODEL,'openai':bool(os.environ.get('OPENAI_API_KEY','').strip())})
   if path=='/api/check':
    name=(parse_qs(urlparse(self.path).query).get('name') or [''])[0]
    if name not in system_checks.SCRIPTS:return self.send_json({'error':'Unknown check'},400)
@@ -538,6 +538,20 @@ class Handler(BaseHTTPRequestHandler):
  def send_json(self,obj,status=200):
   content=json.dumps(obj,default=str).encode();self.send_response(status);self.send_header('Content-Type','application/json; charset=utf-8');self.send_header('Content-Length',str(len(content)));self.send_header('Cache-Control','no-store');self.send_header('X-Content-Type-Options','nosniff');self.end_headers();self.wfile.write(content)
 
+def load_saved_keys(names=('ANTHROPIC_API_KEY','OPENAI_API_KEY')):
+ """Pick up API keys saved with setx after this window opened (HKCU\\Environment). Values are never logged."""
+ if os.name!='nt':return
+ import winreg
+ try:
+  with winreg.OpenKey(winreg.HKEY_CURRENT_USER,'Environment') as key:
+   for name in names:
+    if os.environ.get(name,'').strip():continue
+    try:
+     value=str(winreg.QueryValueEx(key,name)[0]).strip()
+     if value:os.environ[name]=value
+    except FileNotFoundError:pass
+ except OSError:pass
+
 def collector_command():
  """In a packaged .exe sys.executable is PC Medic itself, so it re-enters main() in collector mode."""
  if FROZEN:return [sys.executable,'--run-collector','--output',str(SCAN)]
@@ -548,6 +562,7 @@ def main():
   import collector
   sys.argv=[sys.argv[0]]+sys.argv[2:]
   return collector.main()
+ load_saved_keys()
  p=argparse.ArgumentParser();p.add_argument('--demo',action='store_true');p.add_argument('--port',type=int,default=8765);a=p.parse_args()
  server=start_server(a.port);server.demo=a.demo
  port=server.server_address[1]
