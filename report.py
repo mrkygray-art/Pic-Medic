@@ -12,7 +12,7 @@ from analyze import analyze
 from event_log_analyzer import summarize_events
 
 from version import VERSION
-REPORT_CHECKS = ('battery', 'disk_health', 'crashes', 'updates', 'pending_reboot', 'startup_apps', 'listening_ports')
+REPORT_CHECKS = ('security', 'battery', 'disk_health', 'crashes', 'updates', 'pending_reboot', 'startup_apps', 'listening_ports')
 
 STYLE = """
 :root{--ink:#162239;--muted:#5b6b82;--line:#dce4ef;--soft:#f4f7fb;--accent:#2f6fd8;--bad:#b3261e;--warn:#9a6700;--good:#1a7f37}
@@ -86,6 +86,10 @@ def build(overview, scan, checks, turns, generated=None, cases=None):
     generated = generated or datetime.now()
     model = ' '.join(x for x in (overview.get('manufacturer'), overview.get('product_name'), overview.get('model')) if x) or 'This computer'
     check_html = ''.join(f'<div class="check">{escape(system_checks.describe(name, checks[name]))}</div>' for name in REPORT_CHECKS if name in checks)
+    deep = system_checks.deep_scan()
+    if deep:
+        import deep_scan
+        check_html += f'<div class="check">{escape(deep_scan.describe(deep))}</div>'
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PC Medic report · {escape(model)}</title><style>{STYLE}</style></head><body><main>
 <header><div><h1>PC Medic technician report</h1><div>{escape(model)}</div></div>

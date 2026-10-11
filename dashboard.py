@@ -32,6 +32,7 @@ import settings
 import google_auth
 import troubleshooter
 import report as tech_report
+import deep_scan
 import today
 import timeline
 
@@ -45,6 +46,8 @@ HISTORY = DATA / 'scan_history.json'
 assistant.SCAN_PATH = str(SCAN)  # Claude's get_latest_health_check tool reads the same scan
 settings.DATA_FILE = str(DATA / 'settings.json')  # trial count and update preference
 troubleshooter.CASES_FILE = str(DATA / 'cases.json')  # saved troubleshooting cases
+DEEP_FILE = DATA / 'deep_scan.json'  # the latest administrator deep scan (deep_scan.py)
+system_checks.DEEP_SCAN_FILE = str(DEEP_FILE)
 timeline.DATA_FILE = str(DATA / 'timeline.json')  # daily snapshots for "What changed?" (local only)
 HISTORY_LOCK = threading.Lock()
 LOCK = threading.Lock()
@@ -53,7 +56,7 @@ TOKEN = secrets.token_urlsafe(32)
 # Performance Watch holds a lease, renewed by each sample; a closed tab's lease expires on its own.
 ACTIVITY = {'kind': None, 'owner': None, 'until': 0.0}
 ACTIVITY_LOCK = threading.Lock()
-ACTIVITY_LABELS = {'health': 'A Health Check', 'watch': 'A Performance Watch', 'storage': 'A Storage Explorer search', 'troubleshoot': 'A troubleshooting check'}
+ACTIVITY_LABELS = {'health': 'A Health Check', 'watch': 'A Performance Watch', 'storage': 'A Storage Explorer search', 'troubleshoot': 'A troubleshooting check', 'deep': 'A deep scan'}
 LEASE_SECONDS = 90
 
 def activity_conflict(owner, kind=None, seconds=LEASE_SECONDS):
@@ -113,6 +116,60 @@ def redirect_output(path):
  log=open(path,'w',encoding='utf-8',buffering=1) if path else open(os.devnull,'w')
  if sys.stdout is None:sys.stdout=log
  if sys.stderr is None:sys.stderr=log
+
+# Deep scan: a second, elevated copy of PC Medic runs deep_scan.py through the UAC prompt and writes DEEP_FILE.
+DEEP = {'state': 'idle', 'error': None}
+DEEP_LOCK = threading.Lock()
+
+def run_elevated(args):
+ """Start this program again as administrator (Windows asks the user first). Returns a process handle; PermissionError if they said No."""
+ import ctypes
+ from ctypes import wintypes
+ class SEI(ctypes.Structure):
+  _fields_=[('cbSize',wintypes.DWORD),('fMask',ctypes.c_ulong),('hwnd',wintypes.HWND),('lpVerb',wintypes.LPCWSTR),('lpFile',wintypes.LPCWSTR),('lpParameters',wintypes.LPCWSTR),
+            ('lpDirectory',wintypes.LPCWSTR),('nShow',ctypes.c_int),('hInstApp',wintypes.HINSTANCE),('lpIDList',ctypes.c_void_p),('lpClass',wintypes.LPCWSTR),('hkeyClass',wintypes.HKEY),
+            ('dwHotKey',wintypes.DWORD),('hIconOrMonitor',wintypes.HANDLE),('hProcess',wintypes.HANDLE)]
+ if FROZEN:exe,params=sys.executable,args
+ else:
+  pythonw=Path(sys.executable).with_name('pythonw.exe')  # no console window for the elevated copy
+  exe,params=str(pythonw if pythonw.exists() else sys.executable),[str(BASE/'dashboard.py')]+args
+ sei=SEI(cbSize=ctypes.sizeof(SEI),fMask=0x40|0x100,lpVerb='runas',lpFile=exe,lpParameters=subprocess.list2cmdline(params),nShow=0)  # NOCLOSEPROCESS|NOASYNC
+ shell=ctypes.WinDLL('shell32',use_last_error=True)
+ shell.ShellExecuteExW.argtypes=[ctypes.POINTER(SEI)];shell.ShellExecuteExW.restype=wintypes.BOOL
+ if not shell.ShellExecuteExW(ctypes.byref(sei)):
+  err=ctypes.get_last_error()
+  if err==1223:raise PermissionError('You chose No in the Windows permission prompt, so the deep scan did not run.')
+  raise OSError(f'Windows could not start the deep scan (error {err}).')
+ return sei.hProcess
+
+def wait_process(handle):
+ import ctypes
+ k=ctypes.WinDLL('kernel32');k.WaitForSingleObject(ctypes.c_void_p(handle),0xFFFFFFFF);k.CloseHandle(ctypes.c_void_p(handle))
+
+def deep_scan_worker(owner,sfc):
+ try:
+  handle=run_elevated(['--deep-scan','--output',str(DEEP_FILE)]+(['--sfc'] if sfc else []))
+  with DEEP_LOCK:DEEP.update(state='running')
+  wait_process(handle)
+  result=system_checks.deep_scan()
+  with DEEP_LOCK:DEEP.update(state='done' if result else 'failed',error=None if result else read_deep().get('error') or 'The deep scan ended without a result.')
+ except PermissionError as exc:
+  with DEEP_LOCK:DEEP.update(state='declined',error=str(exc))
+ except Exception as exc:
+  with DEEP_LOCK:DEEP.update(state='failed',error=str(exc) or type(exc).__name__)
+ finally:release_activity(owner)
+
+def read_deep():
+ try:
+  with open(DEEP_FILE,encoding='utf-8') as f:d=json.load(f)
+  return d if isinstance(d,dict) else {}
+ except (OSError,ValueError):return {}
+
+def deep_status():
+ with DEEP_LOCK:state,error=DEEP['state'],DEEP['error']
+ d=read_deep();done=d if d.get('finished') and not d.get('error') else None
+ return {'state':state,'error':error or d.get('error'),'finished':(done or {}).get('finished'),'sfc':(done or {}).get('sfc'),
+         'items':deep_scan.items(done) if done else [],'summary':deep_scan.describe(done) if done else None,'technical':deep_scan.describe(done,True) if done else None}
 
 def valid_owner(value):
  return isinstance(value,str) and bool(re.fullmatch(r'[A-Za-z0-9-]{8,64}',value))
@@ -430,7 +487,8 @@ class Handler(BaseHTTPRequestHandler):
    name=(parse_qs(urlparse(self.path).query).get('name') or [''])[0]
    if name not in system_checks.SCRIPTS:return self.send_json({'error':'Unknown check'},400)
    data=system_checks.check(name)
-   return self.send_json({'name':name,'available':data.get('available',False),'summary':system_checks.describe(name,data),'technical':system_checks.describe_technical(name,data)})
+   return self.send_json({'name':name,'available':data.get('available',False),'summary':system_checks.describe(name,data),'technical':system_checks.describe_technical(name,data),'items':system_checks.items(name,data)})
+  if path=='/api/deep-scan':return self.send_json(deep_status())
   if path=='/api/today':
    refresh=(parse_qs(urlparse(self.path).query).get('refresh') or [''])[0]=='1'
    return self.send_json(today.get(self.server.demo,refresh))
@@ -457,6 +515,16 @@ class Handler(BaseHTTPRequestHandler):
    if not isinstance(body,dict): return self.send_json({'error':'Expected a JSON object'},400)
    if not isinstance(body,dict):raise ValueError('Invalid request')
   except (ValueError,json.JSONDecodeError):return self.send_json({'error':'Invalid JSON'},400)
+  if path=='/api/deep-scan':
+   owner=body.get('owner')
+   if not valid_owner(owner):return self.send_json({'error':'Invalid window id'},400)
+   if os.name!='nt':return self.send_json({'error':'The deep scan needs Windows.'},400)
+   if self.server.demo:return self.send_json({'error':'The deep scan reads the real PC, so it is off in demo mode.'},400)
+   busy=activity_conflict(owner,'deep',seconds=3*3600)  # held until the elevated copy exits
+   if busy:return self.send_json({'error':busy+' is already running. Wait for it to finish.'},409)
+   with DEEP_LOCK:DEEP.update(state='asking',error=None)
+   threading.Thread(target=deep_scan_worker,args=(owner,bool(body.get('sfc'))),daemon=True).start()
+   return self.send_json(deep_status())
   if path=='/api/window':
    owner=body.get('owner')
    if not valid_owner(owner):return self.send_json({'error':'Invalid window id'},400)
@@ -662,6 +730,9 @@ def open_app_window(url):
  import webbrowser;webbrowser.open(url)
 
 def main():
+ if len(sys.argv)>1 and sys.argv[1]=='--deep-scan':  # the elevated copy started by run_elevated()
+  redirect_output(None)
+  return deep_scan.main(sys.argv[2:])
  if len(sys.argv)>1 and sys.argv[1]=='--run-collector':
   import collector
   redirect_output(None)

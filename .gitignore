@@ -13,3 +13,5 @@ packaging/pcmedic.ico
 pcmedic.log
 google_client.json
 timeline.json
+deep_scan.json
+deep_scan.json.tmp

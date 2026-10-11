@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **Deep checks** (Technician mode, new screen), all read-only:
+  - **Security posture** (`system_checks` check `security`, no admin needed): Defender or another antivirus, signature age, Tamper Protection, firewall profiles, UAC level, Secure Boot, TPM (`tpmtool`), drive encryption, whether you sign in as an administrator, activation, Windows version support end date (Home/Pro dates in `SUPPORT_END`), last security update, Remote Desktop and SMB1. Each row is good, worth knowing, needs attention or problem, in plain and technical words. Home mode asks "Is my computer protected?" from a Tools card, and questions like "is my PC secure?" or "is Defender on?" route to it.
+  - **Blue screens** (`bluescreen.py`): each stop code gets its name, what happened and what usually causes it (about 40 common codes), with the parameters and dump file in Technician mode. The deep scan reads the minidumps and finds the likely driver the way BlueScreenView does (a bug-check parameter that points into a driver, otherwise the first non-kernel driver on the crash stack), with the driver's maker and version. Anything that doesn't validate is dropped, never guessed.
+  - **Deep scan as administrator** (`deep_scan.py`, `POST/GET /api/deep-scan`): one Windows UAC prompt starts a second, elevated copy of PC Medic (`--deep-scan`). It runs fixed read-only steps and writes `deep_scan.json`:
+    - drive SMART counters (wear, temperature, power-on hours, uncorrected errors);
+    - boot and shutdown times, and the apps, drivers and services that slowed startup;
+    - DISM `/CheckHealth`, and optionally `sfc /verifyonly`;
+    - the file-system dirty bit;
+    - BitLocker protectors (never the recovery key), TPM and Secure Boot;
+    - crash dumps and LiveKernelReports (hangs Windows recovered from).
+  - The elevated copy only ever writes a file named `deep_scan.json`, never through a link. The scan holds the one-diagnostic-at-a-time slot, is off in demo mode, and Claude's copy drops app and service names. The technician report includes the security check and the latest deep scan.
+- The crash check no longer reports "0 minidumps" when Windows wouldn't let it list them.
 - **What changed?** (`timeline.py`, `GET /api/timeline`): the Today check saves one small snapshot a day (replacing earlier ones from the same day) and keeps them 90 days in `timeline.json`, local only and never sent to AI. Under the Today tiles, PC Medic compares today with about a week ago:
   - free space per drive (changes of 2 GB or 2% and up), battery health, new crashes or unexpected shutdowns ("the first in 21 days", "it came after Windows installed updates on Oct 8"), Windows updates, a restart still pending, and apps added to or removed from startup;
   - Home shows plain sentences, Technician the raw values; **Day by day** lists every day's changes;

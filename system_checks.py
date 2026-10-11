@@ -1,10 +1,14 @@
-"""Read-only Windows checks: battery, disk health, crashes, updates, startup apps, pending reboot, listening ports.
+"""Read-only Windows checks: battery, disk health, crashes, updates, startup apps, pending reboot, listening ports, security.
 
 Each check returns {'available': bool, ...data}. describe() turns data into plain English for the
 offline assistant; for_cloud() strips anything identifying before Claude sees it.
 """
 import json, os, re, subprocess
-from datetime import datetime
+from datetime import datetime, date
+
+import bluescreen
+
+DEEP_SCAN_FILE = None  # set by dashboard.py; the latest administrator deep scan (deep_scan.py), if any
 
 HEADER = "[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false)\n$ErrorActionPreference='SilentlyContinue'\n"
 
@@ -51,11 +55,12 @@ $vols=@(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=3' | ForEach-Object
 CRASHES = r'''
 $since=(Get-Date).AddDays(-30)
 function Get-Ev($id,$provider){@(Get-WinEvent -FilterHashtable @{LogName='System';Id=$id;ProviderName=$provider;StartTime=$since} -MaxEvents 50)}
-$bsod=@(Get-Ev 1001 'Microsoft-Windows-WER-SystemErrorReporting' | ForEach-Object {[pscustomobject]@{Date=$_.TimeCreated.ToString('s');Code=([regex]::Match($_.Message,'0x[0-9A-Fa-f]{8}')).Value}})
+$bsod=@(Get-Ev 1001 'Microsoft-Windows-WER-SystemErrorReporting' | ForEach-Object {[pscustomobject]@{Date=$_.TimeCreated.ToString('s');Code=([regex]::Match($_.Message,'0x[0-9A-Fa-f]{8}')).Value;Text=$_.Message.Substring(0,[math]::Min(600,$_.Message.Length))}})
 $power=@(Get-Ev 41 'Microsoft-Windows-Kernel-Power' | ForEach-Object {$_.TimeCreated.ToString('s')})
 $dirty=@(Get-Ev 6008 'EventLog').Count
-$dumps=@(Get-ChildItem (Join-Path $env:SystemRoot 'Minidump') -Filter *.dmp | Sort-Object LastWriteTime -Descending)
-[pscustomobject]@{WindowDays=30;BlueScreens=$bsod;UnexpectedRestarts=$power;DirtyShutdowns=$dirty;MinidumpCount=$dumps.Count;LatestMinidump=$(if($dumps){$dumps[0].LastWriteTime.ToString('s')}else{$null})}|ConvertTo-Json -Depth 4 -Compress
+$dumpDir=Join-Path $env:SystemRoot 'Minidump';$readable=$true
+try{$dumps=@(Get-ChildItem $dumpDir -Filter *.dmp -ErrorAction Stop | Sort-Object LastWriteTime -Descending)}catch{$dumps=@();$readable=-not ($_.Exception -is [System.UnauthorizedAccessException])}
+[pscustomobject]@{WindowDays=30;BlueScreens=$bsod;UnexpectedRestarts=$power;DirtyShutdowns=$dirty;MinidumpCount=$dumps.Count;MinidumpReadable=$readable;LatestMinidump=$(if($dumps){$dumps[0].LastWriteTime.ToString('s')}else{$null})}|ConvertTo-Json -Depth 4 -Compress
 '''
 
 UPDATES = r'''
@@ -88,11 +93,36 @@ $tcp=@(Get-NetTCPConnection -State Listen | Sort-Object LocalPort,LocalAddress -
 [pscustomobject]@{Tcp=$tcp;UdpCount=@(Get-NetUDPEndpoint).Count}|ConvertTo-Json -Depth 3 -Compress
 '''
 
-SCRIPTS = {'battery':(BATTERY,40),'disk_health':(DISK,30),'crashes':(CRASHES,40),'updates':(UPDATES,40),
+SECURITY = r'''
+# Security posture, all readable without administrator rights. No user names, product keys or recovery keys.
+$mp=Get-MpComputerStatus
+$av=@(Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntiVirusProduct | ForEach-Object {[pscustomobject]@{Name=[string]$_.displayName;State=[int]$_.productState}})
+$fw=@(Get-NetFirewallProfile | ForEach-Object {[pscustomobject]@{Profile=[string]$_.Name;Enabled=[bool]$_.Enabled}})
+$pol=Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+$sb=(Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\SecureBoot\State').UEFISecureBootEnabled
+$groups=& (Join-Path $env:SystemRoot 'System32\whoami.exe') /groups /fo csv | ConvertFrom-Csv
+$admins=$null;try{$admins=@(Get-LocalGroupMember -SID 'S-1-5-32-544' -ErrorAction Stop).Count}catch{}
+$lic=Get-CimInstance SoftwareLicensingProduct -Filter "ApplicationID='55c92734-d682-4d71-983e-d6ec3f16059f' AND PartialProductKey IS NOT NULL" | Select-Object -First 1
+$cv=Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
+$hf=Get-HotFix | Where-Object InstalledOn | Sort-Object InstalledOn -Descending | Select-Object -First 1
+$bl=$null;try{$bl=(New-Object -ComObject Shell.Application).NameSpace($env:SystemDrive).Self.ExtendedProperty('System.Volume.BitLockerProtection')}catch{}
+$tpm=@{};(& (Join-Path $env:SystemRoot 'System32\tpmtool.exe') getdeviceinformation) | ForEach-Object {if($_ -match '^-(TPM Present|TPM Version|Ready For Storage|TPM Has Vulnerable Firmware): *(.*)$'){$tpm[$matches[1]]=$matches[2].Trim()}}
+[pscustomobject]@{
+ Defender=$(if($mp){[pscustomobject]@{Service=$mp.AMServiceEnabled;Antivirus=$mp.AntivirusEnabled;RealTime=$mp.RealTimeProtectionEnabled;Tamper=$mp.IsTamperProtected;Mode=[string]$mp.AMRunningMode;SignatureAgeDays=$mp.AntivirusSignatureAge;QuickScanAgeDays=$mp.QuickScanAge}}else{$null})
+ Antivirus=$av;Firewall=$fw;UacOn=$pol.EnableLUA;UacPrompt=$pol.ConsentPromptBehaviorAdmin;UacSecureDesktop=$pol.PromptOnSecureDesktop;SecureBoot=$sb
+ UserIsAdmin=[bool]($groups | Where-Object {$_.SID -eq 'S-1-5-32-544'});LocalAdminCount=$admins;LicenseStatus=$lic.LicenseStatus
+ Build=[int]$cv.CurrentBuildNumber;UBR=$cv.UBR;DisplayVersion=[string]$cv.DisplayVersion;Edition=[string]$cv.EditionID
+ LastPatch=$(if($hf){[pscustomobject]@{Id=$hf.HotFixID;Date=$hf.InstalledOn.ToString('s')}}else{$null})
+ BitLocker=$bl;Tpm=[pscustomobject]$tpm;RemoteDesktopOn=((Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server').fDenyTSConnections -eq 0)
+ SMB1=(Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters').SMB1
+}|ConvertTo-Json -Depth 4 -Compress
+'''
+
+SCRIPTS = {'security':(SECURITY,45),'battery':(BATTERY,40),'disk_health':(DISK,30),'crashes':(CRASHES,40),'updates':(UPDATES,40),
            'startup_apps':(STARTUP,25),'pending_reboot':(REBOOT,20),'listening_ports':(PORTS,25)}
 TITLES = {'battery':'Battery health','disk_health':'Disk health','crashes':'Crashes and unexpected restarts (last 30 days)',
           'updates':'Windows Update history (last 30 days)','startup_apps':'Startup apps','pending_reboot':'Pending restart',
-          'listening_ports':'Network ports listening for connections'}
+          'listening_ports':'Network ports listening for connections','security':'Security'}
 WELL_KNOWN = {7680:'Delivery Optimization (update sharing)',135:'RPC',139:'NetBIOS',445:'File sharing (SMB)',3389:'Remote Desktop',5357:'Network discovery',5040:'Windows service',
               80:'Web server',443:'Web server (HTTPS)',22:'SSH',21:'FTP',3306:'MySQL',1433:'SQL Server',5432:'PostgreSQL',8080:'Web server'}
 
@@ -104,6 +134,7 @@ def check(name):
         design,full=data.get('DesignCapacity_mWh'),data.get('FullChargeCapacity_mWh')
         data['HealthPercent']=round(100*full/design) if isinstance(design,int) and isinstance(full,int) and design>0 else None
         battery_extras(data)
+    if name=='crashes' and data.get('available'):crash_extras(data)
     return data
 
 def iso_minutes(text):
@@ -136,6 +167,116 @@ def battery_extras(data):
             lost_per_month=(first['percent']-last['percent'])/(days/30.44)
             if lost_per_month>0.05 and last['percent']>80:trend['months_to_80']=round((last['percent']-80)/lost_per_month)
             data['Trend']=trend
+
+def deep_scan():
+    """The latest administrator deep scan (deep_scan.py), or None."""
+    try:
+        with open(DEEP_SCAN_FILE,encoding='utf-8') as f:d=json.load(f)
+        return d if isinstance(d,dict) and d.get('finished') else None
+    except (TypeError,OSError,ValueError):return None
+
+def crash_extras(data):
+    """Stop-code name and meaning for each blue screen, and the likely driver when the deep scan read its dump."""
+    deep=deep_scan() or {}
+    by_file={x.get('file','').lower():x for x in as_list(deep.get('Dumps')) if isinstance(x,dict)}
+    for b in as_list(data.get('BlueScreens')):
+        if not isinstance(b,dict):continue
+        ev=bluescreen.parse_event(b.pop('Text',''))
+        code=ev['code'] if ev else int(b['Code'],16) if re.fullmatch(r'0x[0-9A-Fa-f]+',b.get('Code') or '') else None
+        if code is None:continue
+        b.update(bluescreen.explain(code));b['Params']=ev['params'] if ev else [];b['Dump']=ev['dump'] if ev else None
+        hit=by_file.get((b['Dump'] or '').lower())
+        if hit and hit.get('driver'):b['Driver']={k:hit.get(k) for k in ('driver','reason','company','version','driver_date')}
+    data['DeepScanDate']=deep.get('finished')
+
+# Windows 11 / 10 Home and Pro end of servicing, as published by Microsoft (Enterprise and Education get longer).
+SUPPORT_END = {(11,'21H2'):'2023-10-10',(11,'22H2'):'2024-10-08',(11,'23H2'):'2025-11-11',(11,'24H2'):'2026-10-13',(11,'25H2'):'2027-10-12',(10,'22H2'):'2025-10-14'}
+BITLOCKER = {1:'on',2:'off',3:'encrypting',4:'decrypting',5:'suspended',6:'on (locked)'}
+
+def _item(area,state,plain,tech):return {'area':area,'state':state,'plain':plain,'tech':tech}
+
+def security_items(d,today=None):
+    """The security posture as rows: {'area','state' (good/note/attention/problem),'plain','tech'}."""
+    today=today or date.today();out=[]
+    mp=d.get('Defender') or {}
+    active=[a for a in as_list(d.get('Antivirus')) if isinstance(a,dict) and (a.get('State',0)>>8)&0xF0==0x10]
+    if mp.get('RealTime') and mp.get('Antivirus') and str(mp.get('Mode','Normal')).lower().startswith('normal'):
+        age=mp.get('SignatureAgeDays')
+        state='good' if age is None or age<=3 else 'attention' if age<=7 else 'problem'
+        out.append(_item('Antivirus',state,'Microsoft Defender is on and protecting this PC'+('.' if state=='good' else f', but its virus definitions are {age} days old. Open Windows Security and check for updates.'),
+                         f'Defender RTP on · mode {mp.get("Mode")} · signatures {age} d'+(f' · quick scan {mp.get("QuickScanAgeDays")} d' if mp.get('QuickScanAgeDays') is not None and mp.get('QuickScanAgeDays')<10000 else '')))
+        if mp.get('Tamper') is False:out.append(_item('Tamper protection','note','Tamper Protection is off, so malware could switch Defender off. Turn it on in Windows Security > Virus & threat protection settings.','Defender IsTamperProtected False'))
+    elif active:
+        names=', '.join(sorted({a['Name'] for a in active if a.get('Name') and 'defender' not in a['Name'].lower()})) or 'Another antivirus'
+        out.append(_item('Antivirus','good',f'{names} is protecting this PC.',f'SecurityCenter2 active: {names}'+(f' · Defender mode {mp.get("Mode")}' if mp else '')))
+    else:
+        out.append(_item('Antivirus','problem','No antivirus is actively protecting this PC. Open Windows Security and turn on real-time protection.','No active AV in SecurityCenter2; Defender RTP '+str(mp.get('RealTime'))))
+    fw=[f for f in as_list(d.get('Firewall')) if isinstance(f,dict)]
+    off=[f['Profile'] for f in fw if not f.get('Enabled')]
+    if fw:out.append(_item('Firewall','good' if not off else 'problem' if len(off)==len(fw) else 'attention',
+                           'Windows Firewall is on.' if not off else f'Windows Firewall is off for {", ".join(off)} networks. Turn it on in Windows Security > Firewall & network protection.',
+                           'Firewall '+' · '.join(f'{f["Profile"]} {"on" if f.get("Enabled") else "OFF"}' for f in fw)))
+    if d.get('UacOn')==0:out.append(_item('User Account Control','problem','User Account Control is off, so programs can make changes without asking. Turn it back on (search Start for "UAC").','EnableLUA 0'))
+    elif d.get('UacPrompt')==0:out.append(_item('User Account Control','attention','User Account Control never asks before changes. Set it back to the default level (search Start for "UAC").','ConsentPromptBehaviorAdmin 0'))
+    elif d.get('UacOn') is not None:out.append(_item('User Account Control','good' if d.get('UacSecureDesktop')!=0 else 'note','User Account Control asks before programs make changes.'+('' if d.get('UacSecureDesktop')!=0 else ' Its prompt isn’t on the secure desktop, which is less protected.'),
+                                                     f'EnableLUA {d.get("UacOn")} · ConsentPromptBehaviorAdmin {d.get("UacPrompt")} · PromptOnSecureDesktop {d.get("UacSecureDesktop")}'))
+    sb=d.get('SecureBoot')
+    out.append(_item('Secure Boot','good' if sb==1 else 'attention' if sb==0 else 'note',
+                     'Secure Boot is on, which blocks malware that loads before Windows.' if sb==1 else 'Secure Boot is off. Turning it on in the UEFI (BIOS) settings blocks malware that loads before Windows.' if sb==0 else 'Secure Boot status isn’t available (the PC may use legacy BIOS mode).',
+                     f'UEFISecureBootEnabled {sb}'))
+    tpm=d.get('Tpm') or {}
+    if tpm:
+        present=str(tpm.get('TPM Present','')).lower()=='true';vuln=str(tpm.get('TPM Has Vulnerable Firmware','')).lower()=='true'
+        out.append(_item('TPM','problem' if vuln else 'good' if present else 'attention',
+                         'The TPM security chip has vulnerable firmware. Update the TPM firmware from the PC maker.' if vuln else f'The TPM security chip (version {tpm.get("TPM Version")}) is present.' if present else 'No TPM security chip was found. Windows 11 requires TPM 2.0.',
+                         f'TPM present {tpm.get("TPM Present")} · version {tpm.get("TPM Version")} · ready for storage {tpm.get("Ready For Storage")} · vulnerable FW {tpm.get("TPM Has Vulnerable Firmware")}'))
+    bl=d.get('BitLocker')
+    if bl in (1,6):out.append(_item('Drive encryption','good','The Windows drive is encrypted with BitLocker, so a lost or stolen PC doesn’t expose your files.',f'BitLockerProtection {bl} ({BITLOCKER[bl]})'))
+    elif bl in (3,4,5):out.append(_item('Drive encryption','attention' if bl==5 else 'note',f'BitLocker is {BITLOCKER[bl]} on the Windows drive.'+(' Protection is paused; resume it in Manage BitLocker.' if bl==5 else ''),f'BitLockerProtection {bl} ({BITLOCKER[bl]})'))
+    else:out.append(_item('Drive encryption','note','The Windows drive isn’t encrypted, so anyone with the PC could read its files. On Windows Home, check Settings > Privacy & security > Device encryption; on Pro, turn on BitLocker.',f'BitLockerProtection {bl} (off or unavailable)'))
+    if d.get('UserIsAdmin'):out.append(_item('Accounts','note','You sign in with an administrator account. Using a standard account for everyday work stops many attacks from changing the system.',f'Current user in Administrators · local admins {d.get("LocalAdminCount")}'))
+    elif d.get('LocalAdminCount') is not None:out.append(_item('Accounts','good','You sign in with a standard account; changes need an administrator’s approval.',f'Current user not in Administrators · local admins {d.get("LocalAdminCount")}'))
+    lic=d.get('LicenseStatus')
+    if lic is not None:out.append(_item('Activation','good' if lic==1 else 'attention','Windows is activated.' if lic==1 else 'Windows isn’t activated. Check Settings > System > Activation.',f'LicenseStatus {lic}'))
+    build,ver=d.get('Build') or 0,d.get('DisplayVersion') or ''
+    major=11 if build>=22000 else 10;edition=str(d.get('Edition') or '')
+    end=None if re.search(r'Enterprise|Education|IoT|Server',edition) else SUPPORT_END.get((major,ver))
+    tech=f'Windows {major} {ver} build {build}.{d.get("UBR")} · {edition}'
+    if end:
+        left=(date.fromisoformat(end)-today).days
+        state='problem' if left<0 else 'attention' if left<=90 else 'good'
+        plain=(f'Windows {major} version {ver} stopped getting security updates on {end}. Update to a newer version in Windows Update.' if left<0 else
+               f'Windows {major} version {ver} gets security updates until {end} ({left} days). Install the newer version from Windows Update before then.' if left<=90 else
+               f'Windows {major} version {ver} gets security updates until {end}.')
+        out.append(_item('Windows support',state,plain,tech+f' · end of servicing {end}'))
+    else:out.append(_item('Windows support','note',f'Windows {major} version {ver or "unknown"}. PC Medic doesn’t have this version’s support end date; check Microsoft’s Windows lifecycle page.',tech))
+    patch=d.get('LastPatch') or {}
+    if patch.get('Date'):
+        try:days=(today-date.fromisoformat(patch['Date'][:10])).days
+        except ValueError:days=None
+        if days is not None:out.append(_item('Security updates','good' if days<=45 else 'attention',f'The last Windows update was installed {days} days ago.'+('' if days<=45 else ' Open Windows Update and install what’s waiting.'),f'Last hotfix {patch.get("Id")} {patch["Date"][:10]} ({days} d)'))
+    if d.get('RemoteDesktopOn'):out.append(_item('Remote Desktop','note','Remote Desktop is on, so this PC accepts remote sign-ins. Turn it off in Settings > System > Remote Desktop if you don’t use it.','fDenyTSConnections 0'))
+    if d.get('SMB1')==1:out.append(_item('SMB1','attention','The old SMB1 file-sharing protocol is on. It has known vulnerabilities; turn it off unless an old device needs it.','LanmanServer SMB1 1'))
+    return out
+
+def crash_items(d):
+    """Rows for the Blue screens panel."""
+    out=[];bsod=[b for b in as_list(d.get('BlueScreens')) if isinstance(b,dict)];restarts=as_list(d.get('UnexpectedRestarts'))
+    for b in bsod[:10]:
+        drv=b.get('Driver')
+        who=(f' Likely cause: {drv["driver"]}'+(f' ({drv["company"]}'+(f', version {drv["version"]}' if drv.get('version') else '')+')' if drv.get('company') else '')+'.') if drv else ''
+        out.append(_item(str(b.get('Date',''))[:10],'attention',f'{b.get("name","Blue screen")} ({b.get("code") or b.get("Code")}). {b.get("meaning","")}{who} {"" if drv else b.get("advice","")}'.strip(),
+                         f'{b.get("code") or b.get("Code")} {b.get("name","")} · P1-4 {", ".join(b.get("Params") or []) or "?"} · dump {b.get("Dump") or "-"}'+(f' · {drv["driver"]} ({drv.get("reason")})' if drv else '')))
+    if restarts:out.append(_item('Restarts','note',f'{len(restarts)} unexpected restart{"s" if len(restarts)!=1 else ""} or power loss{"es" if len(restarts)!=1 else ""} without a blue screen (power loss, a held power button, overheating or a hard freeze).',
+                                 f'Kernel-Power 41 ×{len(restarts)} · EventLog 6008 ×{d.get("DirtyShutdowns",0)}'))
+    if not bsod and not restarts:out.append(_item('Last 30 days','good','No blue screens or unexpected restarts.','BSOD 0 · Kernel-Power 41 ×0'))
+    if bsod and not any(b.get('Driver') for b in bsod):out.append(_item('Driver','note','Run the deep scan below to read the crash dumps and find the likely driver.',f'minidumps {d.get("MinidumpCount")} (readable without admin: {d.get("MinidumpReadable")})'))
+    return out
+
+def items(name,d):
+    """Structured rows for checks that have them (the Technician Deep checks screen); [] otherwise."""
+    if not d.get('available'):return []
+    return security_items(d) if name=='security' else crash_items(d) if name=='crashes' else []
 
 def month_year(iso):
     try:return datetime.fromisoformat(iso).strftime('%B %Y')
@@ -182,14 +323,29 @@ def describe(name, d):
             lines.append(f'{v.get("Drive")} drive: {v.get("FreeGB")} GB free of {v.get("SizeGB")} GB.')
         if not any(x.get('WearPercent') is not None or x.get('TemperatureC') for x in as_list(d.get('Disks'))):
             lines.append('Detailed SMART counters (wear, temperature) need PC Medic to run as administrator or are not exposed by this drive.')
+    elif name=='security':
+        items=security_items(d);bad=[i for i in items if i['state'] in ('attention','problem')]
+        notes=sum(1 for i in items if i['state']=='note')
+        lines.append(('Everything PC Medic checked looks protected.' if not notes else f'The essentials are on. {notes} thing{"s are" if notes!=1 else " is"} worth knowing.') if not bad else f'{len(bad)} thing{"s" if len(bad)!=1 else ""} need{"" if len(bad)!=1 else "s"} attention.')
+        lines+=[('✓ ' if i['state']=='good' else '• ')+i['plain'] for i in sorted(items,key=lambda i:i['state']=='good')]
     elif name=='crashes':
         bsod=as_list(d.get('BlueScreens'));restarts=as_list(d.get('UnexpectedRestarts'))
-        lines.append(f'Blue screens: {len(bsod)}.'+(' Stop codes: '+', '.join(sorted({b.get("Code") for b in bsod if b.get("Code")}))+'.' if bsod else ''))
+        lines.append(f'Blue screens: {len(bsod)}.'+(' Stop codes: '+', '.join(sorted({b.get("Code") for b in bsod if isinstance(b,dict) and b.get("Code")}))+'.' if bsod else ''))
+        seen=set()
+        for b in bsod:
+            if isinstance(b,dict) and not b.get('name') and re.fullmatch(r'0x[0-9A-Fa-f]+',b.get('Code') or ''):b={**b,**bluescreen.explain(int(b['Code'],16))}
+            if not isinstance(b,dict) or not b.get('name') or b['code'] in seen:continue
+            seen.add(b['code']);count=sum(1 for x in bsod if isinstance(x,dict) and (x.get('code') or bluescreen.code_hex(int(x.get('Code') or '0',16)))==b['code'])
+            lines.append(f'{b["name"]} ({b["code"]}){f", {count} times" if count>1 else ""}: {b["meaning"]}')
+            drv=b.get('Driver')
+            if drv:lines.append(f'Likely cause: {drv["driver"]}'+(f' from {drv["company"]}' if drv.get('company') else '')+(f', version {drv["version"]}' if drv.get('version') else '')+f' ({drv["reason"]}). Update or roll back that driver first.')
+            else:lines.append(b['advice'])
+        if bsod and not any(isinstance(b,dict) and b.get('Driver') for b in bsod):
+            lines.append('To find the driver behind a blue screen, run the deep scan in Technician mode (Deep checks); it reads the crash dump with administrator permission.')
         lines.append(f'Unexpected restarts or power losses: {len(restarts)}. Improper shutdowns: {d.get("DirtyShutdowns",0)}.')
         if d.get('MinidumpCount'):lines.append(f'Crash dump files saved: {d["MinidumpCount"]} (latest {d.get("LatestMinidump","")[:10]}).')
         if not bsod and not restarts:lines.append('No crashes recorded in the last 30 days.')
-        elif bsod:lines.append('A repeating stop code usually points to a specific driver or hardware fault. Search the code on Microsoft Learn, or ask Claude to interpret it.')
-        else:lines.append('Unexpected restarts without a blue screen often mean power loss, a held power button, overheating or a hard freeze.')
+        elif not bsod:lines.append('Unexpected restarts without a blue screen often mean power loss, a held power button, overheating or a hard freeze.')
     elif name=='updates':
         lines.append(f'Successful installs: {d.get("SuccessCount",0)}. Failed installs: {d.get("FailureCount",0)}.'+(f' Last success: {str(d.get("LastSuccess"))[:10]}.' if d.get('LastSuccess') else ''))
         for f in as_list(d.get('Failures'))[:5]:
@@ -238,8 +394,10 @@ def describe_technical(name, d):
                          + (f' · {extra}' if extra else ' · SMART detail needs admin') + f' · uncorrected errors {errors}')
         parts+=[f'{v.get("Drive")} {v.get("FreeGB")} / {v.get("SizeGB")} GB free' for v in as_list(d.get('Volumes'))]
         return 'Storage: '+' | '.join(parts)
+    if name=='security':
+        return 'Security: '+' | '.join(f'{i["area"]} [{i["state"]}] {i["tech"]}' for i in security_items(d))
     if name=='crashes':
-        bsod=as_list(d.get('BlueScreens'));codes=sorted({b.get('Code') for b in bsod if b.get('Code')})
+        bsod=as_list(d.get('BlueScreens'));codes=sorted({f'{b.get("code") or b.get("Code")} {b.get("name","")}'.strip()+(f' → {b["Driver"]["driver"]}' if b.get('Driver') else '') for b in bsod if isinstance(b,dict) and (b.get('code') or b.get('Code'))})
         return (f'Crashes ({d.get("WindowDays",30)} d): BSOD {len(bsod)}{" " + ",".join(codes) if codes else ""} · Kernel-Power 41 ×{len(as_list(d.get("UnexpectedRestarts")))}'
                 f' · EventLog 6008 ×{d.get("DirtyShutdowns",0)} · minidumps {d.get("MinidumpCount",0)}' + (f' (latest {str(d.get("LatestMinidump"))[:10]})' if d.get('LatestMinidump') else ''))
     if name=='updates':
@@ -270,4 +428,8 @@ def for_cloud(name, d):
         apps=as_list(d.pop('Apps',None))
         d['AllUsers']=sum(a.get('Scope')=='All users' for a in apps);d['ThisUser']=len(apps)-d['AllUsers']
     if name=='battery':d.pop('Model',None)
+    if name=='security':d.pop('LastPatch',None);d['Items']=[{k:i[k] for k in ('area','state','tech')} for i in security_items(d)]
+    if name=='crashes':
+        for b in as_list(d.get('BlueScreens')):
+            if isinstance(b,dict):b.pop('Dump',None);b.pop('Text',None)
     return d

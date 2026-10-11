@@ -33,6 +33,8 @@ A local Windows diagnostic assistant for **laptops and desktops** running Window
 - Styling uses the Fluent tokens in `<style id="fluent">` (`--accent`, `--surface`, `--good` …), redefined under `body.dark`. Use the tokens; don't add hard-coded colors.
 - The Today screen (`today.py`) only runs fast read-only checks (a few seconds total). Anything slower belongs in the Health Check.
 - The "What changed?" timeline (`timeline.py`) saves one snapshot a day from the Today checks into `timeline.json` (local only, 90 days, never sent to AI: it holds startup app names). New comparisons go in `compare()` with `plain` and `tech` text. Demo mode must not record.
+- Deep checks: `security` is a normal `system_checks` check with structured rows (`security_items`, `items()`); new posture rows need `area`, `state`, `plain`, `tech`. The administrator deep scan (`deep_scan.py`) runs in a separate elevated copy started by `run_elevated()` (ShellExecuteEx `runas`) through `POST /api/deep-scan`, which holds the `deep` activity lease until it exits. Keep that copy read-only with fixed steps and no input but `--output` (file name must be `deep_scan.json`, never a link). Never collect BitLocker recovery keys. `deep_scan.for_cloud` must drop startup app and service names.
+- `bluescreen.parse_dump` is a heuristic: validate everything and return `driver: None` rather than guess. Answers say "likely". Stop codes and advice live in `STOP_CODES`/`ADVICE`.
 - Disabled buttons explain themselves through the `WHY` map at the end of dashboard.html (`explainDisabled()`). A new button that can be disabled needs an entry; mark it quiet when being disabled is its normal resting state.
 
 ## Style

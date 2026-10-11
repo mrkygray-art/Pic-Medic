@@ -52,6 +52,7 @@ def classify(question, context=None):
         ('startup_apps',r'\b(startup apps?|start ?up programs?|launch at startup)\b|\b(slow|long|forever)\b.*\b(boot\w*|start ?up|to start)\b|\bstarts slowly\b'),
         ('pending_reboot',r'\b(need|have|should i) to (restart|reboot)\b|\b(restart|reboot) (pending|required|needed)\b|\bpending (restart|reboot)\b|\buptime\b|\blast (restart|reboot)\b'),
         ('disk_health',r'\b(disk|drive|ssd|hard drive|hdd)\b.*\b(health\w*|failing|dying|smart|bad sectors?|errors?|wear|full|free space|space left|running out)\b'),
+        ('security',r'\b(antivirus|anti-virus|virus protection|defender|firewall|bitlocker|device encryption|tpm|secure boot|security (check|posture|status|settings|scan))\b|\b(is|are|am)\b.*\b(computer|pc|laptop|desktop|it|i)\b.*\b(secure|protected|safe from|hackable)\b|\bhow (secure|safe|protected) is\b'),
     ]
     for name,pattern in checks:
         if has(pattern):return {'intent':'system_check','check':name,'scan':'none'}
