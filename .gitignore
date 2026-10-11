@@ -1,6 +1,8 @@
-__pycache__/
 *.pyc
-scan.json
-scan_history.json
 *.tmp
 .env
+__pycache__/
+cases.json
+scan.json
+scan_history.json
+settings.json

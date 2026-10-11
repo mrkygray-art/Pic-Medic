@@ -343,6 +343,84 @@ function showUpdateBanner(r){
 }
 document.querySelector('[data-tab="settings"]').addEventListener('click',loadSettings);
 getJSON('/api/update-check').then(r=>{if(r.available)showUpdateBanner(r);}).catch(()=>{});
+// Guided troubleshooting (troubleshooter.py): understand -> investigate -> explain -> recommend -> validate -> save.
+let tsCase=null;
+const TS_CONTEXT_LABELS={startup:'at startup',browsing:'while browsing',gaming:'while gaming',always:'all the time',unsure:''};
+function caseButtons(buttons){
+ document.getElementById('case-actions')?.remove();
+ if(!buttons.length)return;
+ const row=html('div','actions below');row.id='case-actions';
+ buttons.forEach(([label,fn,primary])=>{const b=html('button',primary?'primary':'secondary',label);b.type='button';
+  b.onclick=async()=>{row.querySelectorAll('button').forEach(x=>x.disabled=true);try{await fn();}catch(e){$('assistant-status').textContent=e.message;row.querySelectorAll('button').forEach(x=>x.disabled=false);}};row.append(b);});
+ $('assistant-status').after(row);
+}
+function fitAnswer(){const box=$('symptom');box.style.height='auto';box.style.height=Math.min(box.scrollHeight+6,720)+'px';}
+async function startTroubleshooting(problem,context){
+ tsCase=await request('/api/troubleshoot/start',{problem});
+ if(context)return troubleshootContext(context);
+ $('symptom').value='Your question: '+problem+'\n\nLet’s find out what is slowing it down. '+tsCase.question.text;
+ $('assistant-status').textContent='Choose when it feels slow · Nothing has been measured yet.';
+ caseButtons(Object.entries(tsCase.question.options).map(([key,label])=>[label,()=>troubleshootContext(key)]));
+}
+async function troubleshootContext(context){
+ caseButtons([]);
+ $('assistant-status').textContent='Investigating · measuring the processor, memory, disk, busiest apps and startup apps (about 10 seconds)…';
+ $('symptom').value='Measuring this computer for a few seconds…';
+ tsCase=await request('/api/troubleshoot/context',{case_id:tsCase.id,context,owner:windowId});
+ showRecommendation();
+}
+function showRecommendation(){
+ const c=tsCase,r=c.recommendation;
+ $('symptom').value=['What I found'+(TS_CONTEXT_LABELS[c.context]?' (slow '+TS_CONTEXT_LABELS[c.context]+')':'')+':','• '+c.explanation.join('\n• '),c.measured||'',
+  'My suggestion: '+r.title,'Why: '+r.why].filter(Boolean).join('\n\n');
+ fitAnswer();
+ $('assistant-status').textContent='Investigation complete · PC Medic changed nothing. You decide what to do.';
+ const buttons=[[r.no_validation?'Show me how':'Walk me through it',walkThrough,true],['Show another suggestion',nextSuggestion]];
+ if(claudeReady)buttons.push(['Ask Claude for a second opinion',()=>{caseButtons([]);archiveTurn();currentQuestion='Second opinion from Claude';return askClaude('My computer feels slow'+(TS_CONTEXT_LABELS[c.context]?' '+TS_CONTEXT_LABELS[c.context]:'')+'. Please investigate what is slowing it down and what I should do.');}]);
+ caseButtons(buttons);
+}
+async function walkThrough(){
+ const r=tsCase.recommendation;
+ $('symptom').value=r.title+'\n\n'+r.steps.map((s,i)=>`${i+1}. ${s}`).join('\n')+'\n\n'+(r.no_validation?'':'PC Medic will measure again afterwards to compare with the first check.');
+ fitAnswer();
+ const buttons=[];
+ if(r.tool)buttons.push([r.tool_label||'Open',()=>openWindowsTool(r.tool),true]);
+ if(!r.no_validation)buttons.push(['I’ve done it',confirmDone,!r.tool]);
+ buttons.push(['Show another suggestion',nextSuggestion]);
+ caseButtons(buttons);
+ $('assistant-status').textContent='Follow the steps. Nothing changes unless you make the change.';
+}
+async function nextSuggestion(){
+ tsCase=await request('/api/troubleshoot/next',{case_id:tsCase.id});
+ showRecommendation();
+}
+async function confirmDone(){
+ caseButtons([]);
+ $('assistant-status').textContent='Measuring again to compare with the first check (about 10 seconds)…';
+ tsCase=await request('/api/troubleshoot/done',{case_id:tsCase.id,owner:windowId});
+ $('symptom').value='Before and after:\n\n'+tsCase.validation.map(x=>'• '+x).join('\n')+'\n\nDoes your computer feel better?';
+ fitAnswer();
+ $('assistant-status').textContent='Comparison complete · Tell PC Medic how it feels.';
+ caseButtons([['Yes, it’s better',()=>sendFeeling('better'),true],['A little better',()=>sendFeeling('little')],['No change',()=>sendFeeling('same')]]);
+}
+async function sendFeeling(feeling){
+ tsCase=await request('/api/troubleshoot/feedback',{case_id:tsCase.id,feeling});
+ const lines=[tsCase.outcome,'Saved to PC Medic’s troubleshooting history on this computer (it also appears in the technician report).'];
+ if(tsCase.next)lines.push('Next suggestion: '+tsCase.next.title+'\nWhy: '+tsCase.next.why);
+ $('symptom').value=lines.join('\n\n');fitAnswer();
+ $('assistant-status').textContent=feeling==='better'?'Great — case closed.':'Case saved · You can try the next suggestion.';
+ caseButtons(tsCase.next?[['Try the next suggestion',nextSuggestion,true],['Stop here',async()=>{caseButtons([]);}]]:[]);
+}
+// A restart or a startup change spans sessions: offer to continue an open case when PC Medic opens again.
+getJSON('/api/troubleshoot/history').then(async h=>{
+ const last=(h.cases||[])[0];
+ if(!last||!['recommended','validating'].includes(last.status))return;
+ if(Date.now()-new Date(last.updated).getTime()>7*86400000)return;
+ const c=await getJSON('/api/troubleshoot/case?id='+encodeURIComponent(last.id));
+ if(c.recommendation?.no_validation)return;  // nothing to check later (e.g. "measure while it is slow")
+ $('assistant-status').textContent='You were troubleshooting: “'+c.problem+'”. Continue where you left off?';
+ caseButtons([['Continue',()=>{tsCase=c;currentQuestion=c.problem;return c.status==='validating'?confirmDone():walkThrough();},true],['Dismiss',async()=>{caseButtons([]);$('assistant-status').textContent='Scan results and AI answers appear in the assessment field above.';}]]);
+}).catch(()=>{});
 let pendingClarification=null;
 let pendingResearch=null;
 let conversationContext={lastQuestion:'',lastTopic:'',lastHardware:null};
@@ -603,7 +681,9 @@ async function startGuidedDiagnosis(){
  try{understanding=await request('/api/intent',{question:userSymptom,context:{pending_research:pendingResearch?pendingResearch.kind:null}});}
  catch(e){$('assistant-status').textContent='Offline understanding unavailable: '+e.message+'. No scan started.';return;}
  const intent=understanding.intent;
- document.getElementById('claude-offer')?.remove();document.getElementById('fallback-choices')?.remove();document.getElementById('answer-tools')?.remove();document.getElementById('settings-offer')?.remove();
+ document.getElementById('claude-offer')?.remove();document.getElementById('fallback-choices')?.remove();document.getElementById('answer-tools')?.remove();document.getElementById('settings-offer')?.remove();document.getElementById('case-actions')?.remove();
+ // Slowness gets the guided troubleshooter in every mode; it measures locally and explains.
+ if(intent==='slow'){await startTroubleshooting(userSymptom,understanding.context);return;}
  if(answerMode==='claude'&&claudeReady&&intent!=='open_tool'){clearResearchOffer();document.getElementById('port-choices')?.remove();document.getElementById('memory-choices')?.remove();await askClaude(typed);return;}
  if(intent==='research_confirm'){await prepareUpgradeResearch();return;}
  if(intent==='research_decline'){clearResearchOffer();$('assistant-status').textContent='Staying offline. No information was shared.';return;}

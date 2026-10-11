@@ -1,51 +1,50 @@
-# PC Medic AI V1.6 — dual-provider AI diagnostic prototype
+# PC Medic AI
 
-Local Windows diagnostics with Claude, OpenAI, and offline provider selection.
+A Windows technician that lives on your laptop or desktop. Ask it anything about your computer in plain English. It checks the real hardware and Windows settings, explains what it finds, and walks you through fixes. It never changes anything on its own.
 
-## Run
+Runs on Windows 10 and 11 laptops and desktops. Windows Server is out of scope.
 
-1. Install Python 3.10+ on Windows. Extract this folder.
-2. Open PowerShell in the `pc-medic-ai` directory.
-3. Configure API keys **in PowerShell** only if you want cloud AI:
+## What it does
 
-   ```powershell
-   $env:ANTHROPIC_API_KEY = 'YOUR_CLAUDE_API_KEY'
-   $env:OPENAI_API_KEY = 'YOUR_OPENAI_API_KEY'
-   ```
+- **Answers questions from real data.** It identifies your model, RAM, graphics, storage, battery, network, updates and crashes, so "Can I add more RAM?" is answered with your actual memory slots, not a generic article.
+- **Guided troubleshooting.** For "My computer is slow", PC Medic asks when it happens and measures the processor, memory, disk, busiest apps and startup apps. It then explains the evidence, suggests one fix with step-by-step help, measures again, and asks whether it feels better. Each case is saved.
+- **Health Check and Performance Watch.** Rule-based scans of storage, drivers, Windows events and performance over time.
+- **AI when needed.** In Smart mode (the default), questions the built-in engine can't answer go to Claude, which runs read-only checks and searches the web with cited sources, or to ChatGPT. You approve before anything is shared.
+- **Parts research.** Chargers, batteries, RAM and SSDs, researched against your exact model and labeled "possible match" or "unverified", never "guaranteed".
+- **Technician report.** A printable summary of the computer, findings, checks, troubleshooting history and the conversation, with space for notes.
+- **Tools.** Storage Explorer finds large files and safely moves them to the Recycle Bin. You can also open Windows tools after confirming, and view Devices & Drivers.
 
-   You may configure one or both. Do **not** paste keys into ChatGPT, screenshots, GitHub, or a frontend file. Keys are held by the local Python server, not served to the browser. To use different model IDs, set `PCMEDIC_CLAUDE_MODEL` and `PCMEDIC_OPENAI_MODEL` in your PowerShell environment.
-4. Start the local dashboard:
+## Run from source
+
+1. Install Python 3.10 or newer on Windows, then run `pip install -r requirements.txt` in this folder.
+2. Start PC Medic:
 
    ```powershell
    python -u .\dashboard.py
    ```
 
-5. Visit `http://127.0.0.1:8765`. Click **Run New Scan**, then open **AI Troubleshooting**. Select Offline, Claude, or OpenAI. Cloud mode requires per-request consent.
+3. Open the address it prints (normally `http://127.0.0.1:8765`).
 
-For a simulated recruiter demo, run `python -u .\dashboard.py --demo --port 8766` in another window. No real scans are allowed in demo mode. **Cloud AI in demo mode is still a real, billable API request if enabled and approved.**
+`--demo` uses simulated scan data, and `--port 8766` runs a second copy alongside.
 
-## Security and limitations
+## AI keys
 
-- Binds to 127.0.0.1 only. No login, TLS or public exposure: **do not deploy this local server to Vercel or expose the port**.
-- Diagnostic collectors remain read-only. The LLM receives no shell access. Optional `process_memory` is a fixed, allowlisted collector that requires user approval.
-- Cloud evidence is a minimized summary, not the entire scan; process names can reveal software. A consent checkbox is required for every cloud request. No diagnostic upload in Offline mode.
-- Keys are environment variables, never browser code. The app does not persist cloud conversations; cloud providers may retain API data under their own policies.
-- The model can request fixed allowlisted read-only tools; process-memory sampling requires separate explicit user approval. No arbitrary shell execution is possible.
-- API requests may incur charges. The default model IDs are configurable and subject to your provider account's availability.
-- Offline mode remains available if either API is unavailable. There is no silent fallback that sends data elsewhere.
-- The existing process-memory trend is a top-12 working-set comparison, not a memory-leak test.
+PC Medic works offline without any key. For AI answers, open **Settings** and paste an Anthropic (Claude) or OpenAI (ChatGPT) key. Keys are checked with the provider, then stored in Windows Credential Manager for your Windows account, and are never shown again.
 
-## Files
+A key set as `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` on the PC also works. Installed copies can include a trial key (`PCMEDIC_TRIAL_ANTHROPIC_API_KEY`) that allows 10 AI questions per Windows account, after which PC Medic asks for the user's own key. Before public release, move the trial key behind a small service. A key bundled inside an app can be extracted.
 
-- `collector.py`: Windows system collection
-- `analyze.py`: deterministic diagnostic findings
-- `process_diagnostics.py`: fixed read-only process collector
-- `ai_engine.py`: cloud evidence minimization, provider adapters, and allowlisted tool registry
-- `dashboard.py`: localhost API, request validation, consent enforcement
-- `dashboard.html`: browser interface
-- `test_v16.py`: basic security/evidence checks
+## Privacy and safety
 
+- The server listens only on this computer, refuses requests from other websites, and answers only the Windows account that started it.
+- Every check is read-only. PC Medic opens Windows pages and tools after you confirm; you make every change.
+- Nothing leaves the PC in Offline mode. Before Claude or ChatGPT is used, PC Medic asks once per session and lists what is shared. It never sends serial numbers, user or computer names, IP or MAC addresses, file names, or program and process names.
+- Storage Explorer only moves files to the Recycle Bin. It refuses files that are too large for the Recycle Bin, because Windows would delete those permanently.
 
-## V1.14
-- Health check first, editable automatic assessment below, Ask PC Medic provider modal at bottom.
-- Existing cloud consent and diagnostics retained.
+## Updates
+
+When `PCMEDIC_UPDATE_REPO` points to the project's GitHub repository, PC Medic checks GitHub Releases on startup and shows a download link when a newer version exists. You can turn this off in Settings.
+
+## Development
+
+- Tests: `python -m unittest discover -p "test_*.py"`. AI calls are mocked, so the tests cost nothing.
+- The version lives in `version.py`, changes are listed in [CHANGELOG.md](CHANGELOG.md), and architecture rules are in [CLAUDE.md](CLAUDE.md).

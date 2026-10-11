@@ -50,7 +50,7 @@ class TestCloudPrivacy(unittest.TestCase):
 class TestRouting(unittest.TestCase):
     def test_questions_reach_the_right_check(self):
         cases = {'How is my battery health?': 'battery', 'My battery drains fast': 'battery', 'I got a blue screen': 'crashes',
-                 'My PC restarts by itself': 'crashes', 'Windows update keeps failing': 'updates', 'My computer takes forever to boot': 'startup_apps',
+                 'My PC restarts by itself': 'crashes', 'Windows update keeps failing': 'updates', 'What startup apps do I have?': 'startup_apps',
                  'Do I need to restart?': 'pending_reboot', 'Is my SSD failing?': 'disk_health', 'My hard drive is full': 'disk_health'}
         for question, check in cases.items():
             with self.subTest(question=question):

@@ -33,6 +33,14 @@ def classify(question, context=None):
         return {'intent':'replacement_part','part':'replacement laptop charger','scan':'none'}
     if has(r'\b(batter(y|ies))\b') and has(r'\b(replace\w*|new|buy|purchase|order|need|find|where can i|swap)\b') and not has(r'\b(drain\w*|health|life|report|lasting|dies fast)\b'):
         return {'intent':'replacement_part','part':'replacement laptop battery','scan':'none'}
+    # Slowness starts a guided troubleshooting case (troubleshooter.py). When the wording says when it happens,
+    # the case skips the "when is it slow?" question. Slow internet is a network problem, not a slow PC.
+    if has(r'\b(slow\w*|sluggish|lag|lags|lagging|laggy|stutter\w*|takes (forever|ages|a long time)|unresponsive|hangs|hanging|bogged down)\b') \
+            and not has(r'\b(internet|wi-?fi|download\w*|upload\w*|network|connection|printer|print\w*)\b'):
+        when = ('gaming' if has(r'\b(games?|gaming|fps|steam|fortnite|minecraft|roblox|valorant)\b') else
+                'startup' if has(r'\b(boot\w*|start ?up|starting up|turn(s|ing)? on|sign(ing)? in|log(ging)? ?in|restart\w*)\b') else
+                'browsing' if has(r'\b(browser|browsing|web ?pages?|websites?|chrome|edge|firefox|tabs?|youtube)\b') else None)
+        return {'intent':'slow','context':when,'scan':'none'}
     # "Can it run games?" is answered from the graphics card, processor and RAM.
     if has(r'\b(games?|gaming|gamer|fps|frame ?rate|steam|fortnite|minecraft|roblox|valorant|call of duty|gta|cyberpunk|elden ring)\b') and not has(r'\b(crash\w*|freez\w*|lag\w*|stutter\w*|won.t (start|launch|open))\b'):
         return {'intent':'gaming','scan':'none'}

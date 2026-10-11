@@ -24,6 +24,9 @@ A local Windows diagnostic assistant for **laptops and desktops** running Window
 - Windows PowerShell 5 encodes dates in JSON as `/Date(ms)/`; use `event_log_analyzer.event_time()` or emit `.ToString('s')` in the script.
 - Every request passes `local_security.same_user()` (the connecting process must run as the same Windows account). Don't add endpoints that bypass `Handler.foreign_request()`.
 - Advice that depends on hardware must check `DeviceType` (laptop, desktop, all-in-one, virtual, unknown) and `IdentitySource` (system, motherboard, unknown) from `hardware_advisor.identify()`.
+- Guided troubleshooting (`troubleshooter.py`): PC Medic measures and explains; the user makes every change via `action_plan()` steps and the Windows page it opens. New problem types add findings rules, actions and `compare()` handling. Cases live in `cases.json` (local only; names never go to AI).
+- AI keys come from `settings.resolve()`: saved (Credential Manager), then environment, then trial (10 uses). Every AI call goes through `settings.key_for_use()` and `settings.record_use()`. Never send key values to the page.
+- Claude questions are background jobs (`assistant.JOBS`); the page polls `/api/assistant/job`. Keep tools read-only and fast (60 s timeout).
 - Keep the existing layout. Output goes in the central assessment box (`#symptom`), with status in `#assistant-status`.
 
 ## Style

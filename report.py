@@ -75,7 +75,14 @@ def conversation_section(turns):
     if not clean:return '<p class="muted">No questions were asked in this session.</p>'
     return ''.join(f'<div class="qa">{f"<div class=q>Q: {escape(q)}</div>" if q else ""}<div class="a">{escape(a)}</div></div>' for q, a in clean)
 
-def build(overview, scan, checks, turns, generated=None):
+def cases_section(cases):
+    if not cases:return '<p class="muted">No guided troubleshooting on this computer yet.</p>'
+    status = {'resolved': 'Fixed', 'improved': 'Improved', 'not_resolved': 'Not fixed', 'recommended': 'In progress', 'validating': 'In progress', 'asking': 'Started'}
+    return '<table>' + ''.join(f'<tr><th>{escape(str(c.get("updated", ""))[:10])} · {escape(status.get(c.get("status"), str(c.get("status"))))}</th>'
+                               f'<td>{escape(c.get("problem") or "")}{(" (" + escape(c["context"]) + ")") if c.get("context") else ""}'
+                               f'{("<br><span class=muted>" + escape(c["outcome"]) + "</span>") if c.get("outcome") else ""}</td></tr>' for c in cases[:15]) + '</table>'
+
+def build(overview, scan, checks, turns, generated=None, cases=None):
     generated = generated or datetime.now()
     model = ' '.join(x for x in (overview.get('manufacturer'), overview.get('product_name'), overview.get('model')) if x) or 'This computer'
     check_html = ''.join(f'<div class="check">{escape(system_checks.describe(name, checks[name]))}</div>' for name in REPORT_CHECKS if name in checks)
@@ -88,6 +95,7 @@ def build(overview, scan, checks, turns, generated=None):
 <h2>Health Check findings</h2>{findings_section(scan)}
 <h2>Current checks</h2>{check_html or '<p class="muted">Checks unavailable.</p>'}
 <h2>Recent Windows errors</h2>{events_section(scan)}
+<h2>Troubleshooting history</h2>{cases_section(cases)}
 <h2>Questions and answers this session</h2>{conversation_section(turns)}
 <h2>Technician notes</h2><div id="notes" contenteditable="true"></div>
 <footer>Read-only diagnostics: PC Medic did not change any settings, files or drivers. Event IDs and findings are leads, not proof of cause.
@@ -102,4 +110,5 @@ def generate(scan, turns):
         jobs = {name: pool.submit(system_checks.check, name) for name in REPORT_CHECKS}
         checks = {name: job.result() for name, job in jobs.items()}
         overview = overview_job.result()
-    return build(overview, scan, checks, turns)
+    import troubleshooter
+    return build(overview, scan, checks, turns, cases=troubleshooter.history())

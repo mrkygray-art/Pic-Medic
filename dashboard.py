@@ -29,6 +29,7 @@ import local_security
 import socket
 import assistant
 import settings
+import troubleshooter
 import report as tech_report
 
 BASE = Path(__file__).resolve().parent
@@ -40,6 +41,7 @@ SCAN = DATA / 'scan.json'
 HISTORY = DATA / 'scan_history.json'
 assistant.SCAN_PATH = str(SCAN)  # Claude's get_latest_health_check tool reads the same scan
 settings.DATA_FILE = str(DATA / 'settings.json')  # trial count and update preference
+troubleshooter.CASES_FILE = str(DATA / 'cases.json')  # saved troubleshooting cases
 HISTORY_LOCK = threading.Lock()
 LOCK = threading.Lock()
 TOKEN = secrets.token_urlsafe(32)
@@ -47,7 +49,7 @@ TOKEN = secrets.token_urlsafe(32)
 # Performance Watch holds a lease, renewed by each sample; a closed tab's lease expires on its own.
 ACTIVITY = {'kind': None, 'owner': None, 'until': 0.0}
 ACTIVITY_LOCK = threading.Lock()
-ACTIVITY_LABELS = {'health': 'A Health Check', 'watch': 'A Performance Watch', 'storage': 'A Storage Explorer search'}
+ACTIVITY_LABELS = {'health': 'A Health Check', 'watch': 'A Performance Watch', 'storage': 'A Storage Explorer search', 'troubleshoot': 'A troubleshooting check'}
 LEASE_SECONDS = 90
 
 def activity_conflict(owner, kind=None, seconds=LEASE_SECONDS):
@@ -319,6 +321,26 @@ class Handler(BaseHTTPRequestHandler):
   # On a shared PC every signed-in account can reach 127.0.0.1; only the account that started PC Medic may use it.
   if not local_security.same_user(self.client_address,self.server.server_address[1]):return OTHER_ACCOUNT
   return None
+ def troubleshoot(self,step,body):
+  """Guided troubleshooting steps. Measuring steps take the single diagnostic slot."""
+  case_id=str(body.get('case_id') or '')
+  owner=body.get('owner') if valid_owner(body.get('owner')) else 'default'
+  try:
+   if step=='start':
+    problem=body.get('problem')
+    if not isinstance(problem,str) or not problem.strip():raise ValueError('Describe the problem first')
+    return self.send_json(troubleshooter.public(troubleshooter.start(problem)))
+   if step in ('context','done'):
+    busy=activity_conflict(owner,'troubleshoot',seconds=60)
+    if busy:return self.send_json({'error':busy+' is already running in another PC Medic window. Wait for it to finish.'},409)
+    try:
+     case=troubleshooter.investigate(case_id,body.get('context'),self.server.demo) if step=='context' else troubleshooter.validate(case_id,self.server.demo)
+    finally:release_activity(owner)
+    return self.send_json(troubleshooter.public(case))
+   if step=='next':return self.send_json(troubleshooter.public(troubleshooter.next_recommendation(case_id)))
+   if step=='feedback':return self.send_json(troubleshooter.public(troubleshooter.feedback(case_id,body.get('feeling'))))
+  except ValueError as exc:return self.send_json({'error':str(exc)},400)
+  return self.send_json({'error':'Not found'},404)
  def refuse(self,reason):
   # Read the unread request body first; replying mid-upload makes Windows reset the connection,
   # so the caller would see "connection reset" instead of this message.
@@ -345,6 +367,10 @@ class Handler(BaseHTTPRequestHandler):
    return self.send_json({'configured':info['providers']['anthropic']['available'],'openai':info['providers']['openai']['available'],'model':assistant.MODEL,'trial':info['trial'],
                           'sources':{k:v['source'] for k,v in info['providers'].items()}})
   if path=='/api/settings':return self.send_json(settings.summary())
+  if path=='/api/troubleshoot/history':return self.send_json({'cases':troubleshooter.history()})
+  if path=='/api/troubleshoot/case':
+   case=troubleshooter.get((parse_qs(urlparse(self.path).query).get('id') or [''])[0])
+   return self.send_json(troubleshooter.public(case)) if case else self.send_json({'error':'Unknown case'},404)
   if path=='/api/update-check':return self.send_json(settings.check_for_update())
   if path=='/api/assistant/job':
    job=assistant.JOBS.get((parse_qs(urlparse(self.path).query).get('id') or [''])[0])
@@ -479,6 +505,8 @@ class Handler(BaseHTTPRequestHandler):
    conv=body.get('conversation_id')
    # Runs in the background; the page polls /api/assistant/job for progress and the answer.
    return self.send_json({'job_id':assistant.JOBS.start(conv if isinstance(conv,str) and len(conv)<=40 else None,question.strip(),self.server.demo)})
+  if path.startswith('/api/troubleshoot/'):
+   return self.troubleshoot(path.rsplit('/',1)[-1],body)
   if path=='/api/assistant/cancel':
    return self.send_json({'cancelling':assistant.JOBS.cancel(str(body.get('job_id','')))})
   if path=='/api/settings/key':

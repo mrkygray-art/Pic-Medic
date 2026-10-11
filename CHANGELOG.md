@@ -4,6 +4,23 @@
 
 First release maintained with Claude Code, after the ChatGPT-built 1.16.14 prototype.
 
+### Guided troubleshooting, Settings and reliable AI
+- **Guided troubleshooting** (`troubleshooter.py`, `/api/troubleshoot/*`):
+  - "Slow" questions start a case. It asks when the PC is slow (startup, browsing, gaming, all the time), or reads it from the question.
+  - It measures CPU, memory and disk (PDH), per-app CPU, disk and memory, enabled startup apps (StartupApproved), disk health and space, uptime and pending restarts, and the power plan.
+  - It explains the evidence in plain English and recommends one action with steps and a button to open the right Windows page.
+  - After "I've done it" it measures again, compares with the first check, asks how the PC feels, and saves the outcome to `cases.json`.
+  - Open cases can be continued after a restart. History appears in the technician report.
+- **Settings tab and keys** (`settings.py`): keys are checked with the provider and stored in Windows Credential Manager. A key in the environment counts as the user's own. A trial key allows 10 AI questions per Windows account, then the user is asked for their own key.
+- **Update checks:** GitHub Releases check with a download banner, off until `PCMEDIC_UPDATE_REPO` is set.
+- **Reliable Claude chat:** questions run as background jobs with live progress and Cancel. Tools run in parallel with timeouts and per-turn caching, the SDK retries transient errors, and a turn deadline makes Claude answer with what it has.
+- **Cleanup and small fixes:**
+  - Removed the old hidden console, the old Claude path and `/api/ask`.
+  - CPU, disk and memory sampled in-process with PDH; per-sample PowerShell inflated CPU.
+  - OneDrive online-only files are skipped in Storage Explorer.
+  - "AI-guided Health Check" is now "Health Check".
+  - Version 1.17.0 in `version.py`; old READMEs moved to `docs/history`.
+
 ### Root causes found in 1.16.14
 - **Research returned useless results that looked like real ones.** Without a Brave key, `parts_research.py` used Bing's public RSS feed. The feed ignores the query and always returns the Lenovo homepage, Lenovo Support and Wikipedia. The UI then reported "Search complete · 8 candidate sources".
 - **"Yes, research it" lost context.** The browser's yes-reply regex did not allow a comma.
