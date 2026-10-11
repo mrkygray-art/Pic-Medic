@@ -72,7 +72,7 @@ class TestRouting(unittest.TestCase):
             with self.subTest(question=question):
                 self.assertEqual((classify(question)['intent'], classify(question)['context']), ('slow', context))
         self.assertNotEqual(classify('My internet is slow')['intent'], 'slow')
-        self.assertEqual(classify('My computer froze')['intent'], 'performance')
+        self.assertEqual(classify('My computer froze')['intent'], 'investigate')
 
 
 class TestCaseLifecycle(unittest.TestCase):

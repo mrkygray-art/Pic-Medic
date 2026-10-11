@@ -119,11 +119,35 @@ $tpm=@{};(& (Join-Path $env:SystemRoot 'System32\tpmtool.exe') getdeviceinformat
 }|ConvertTo-Json -Depth 4 -Compress
 '''
 
-SCRIPTS = {'security':(SECURITY,45),'battery':(BATTERY,40),'disk_health':(DISK,30),'crashes':(CRASHES,40),'updates':(UPDATES,40),
+# Event-log signals a technician reads first for freezes and crashes (last 30 days). App names stay on this PC (for_cloud drops them).
+SIGNALS = r'''
+$since=(Get-Date).AddDays(-30);$week=(Get-Date).AddDays(-7)
+function Sig($filter){$e=@(Get-WinEvent -FilterHashtable ($filter+@{StartTime=$since}) -MaxEvents 300)
+ [pscustomobject]@{Count=$e.Count;Week=@($e|Where-Object TimeCreated -gt $week).Count;Last=$(if($e){$e[0].TimeCreated.ToString('s')}else{$null});Dates=@($e|Select-Object -First 20|ForEach-Object{$_.TimeCreated.ToString('s')})}}
+function Apps($id,$provider){$e=@(Get-WinEvent -FilterHashtable @{LogName='Application';Id=$id;ProviderName=$provider;StartTime=$since} -MaxEvents 300)
+ $names=@($e|ForEach-Object{[string]$_.Properties[0].Value})
+ [pscustomobject]@{Count=$e.Count;Week=@($e|Where-Object TimeCreated -gt $week).Count;Last=$(if($e){$e[0].TimeCreated.ToString('s')}else{$null});Dates=@($e|Select-Object -First 20|ForEach-Object{$_.TimeCreated.ToString('s')});
+  Top=@($names|Group-Object|Sort-Object Count -Descending|Select-Object -First 5|ForEach-Object{[pscustomobject]@{Name=$_.Name;Count=$_.Count}})}}
+$out=[pscustomobject]@{WindowDays=30
+ GpuResets=Sig @{LogName='System';ProviderName='Display';Id=4101}
+ DiskErrors=Sig @{LogName='System';ProviderName='disk';Id=7,51,153}
+ StorageResets=Sig @{LogName='System';ProviderName='storahci','stornvme','iaStorAC','iaStorA','iaStorVD','iaStorAVC';Id=129}
+ FileSystem=Sig @{LogName='System';ProviderName='Microsoft-Windows-Ntfs';Id=55}
+ Hardware=Sig @{LogName='System';ProviderName='Microsoft-Windows-WHEA-Logger'}
+ Thermal=Sig @{LogName='System';ProviderName='Microsoft-Windows-Kernel-Processor-Power';Id=37}
+ LowMemory=Sig @{LogName='System';ProviderName='Microsoft-Windows-Resource-Exhaustion-Detector';Id=2004}
+ ServiceCrashes=Sig @{LogName='System';ProviderName='Service Control Manager';Id=7031,7034}
+ WifiDrops=Sig @{LogName='Microsoft-Windows-WLAN-AutoConfig/Operational';Id=8003}
+ AppHangs=Apps 1002 'Application Hang'
+ AppCrashes=Apps 1000 'Application Error'}
+$out|ConvertTo-Json -Depth 4 -Compress
+'''
+
+SCRIPTS = {'security':(SECURITY,45),'event_signals':(SIGNALS,40),'battery':(BATTERY,40),'disk_health':(DISK,30),'crashes':(CRASHES,40),'updates':(UPDATES,40),
            'startup_apps':(STARTUP,25),'pending_reboot':(REBOOT,20),'listening_ports':(PORTS,25)}
 TITLES = {'battery':'Battery health','disk_health':'Disk health','crashes':'Crashes and unexpected restarts (last 30 days)',
           'updates':'Windows Update history (last 30 days)','startup_apps':'Startup apps','pending_reboot':'Pending restart',
-          'listening_ports':'Network ports listening for connections','security':'Security'}
+          'listening_ports':'Network ports listening for connections','security':'Security','event_signals':'Warning signs in the Windows logs (last 30 days)'}
 WELL_KNOWN = {7680:'Delivery Optimization (update sharing)',135:'RPC',139:'NetBIOS',445:'File sharing (SMB)',3389:'Remote Desktop',5357:'Network discovery',5040:'Windows service',
               80:'Web server',443:'Web server (HTTPS)',22:'SSH',21:'FTP',3306:'MySQL',1433:'SQL Server',5432:'PostgreSQL',8080:'Web server'}
 
@@ -294,10 +318,40 @@ def update_items(d):
     if not out:out.append(_item('Last 30 days','good',f'No failed updates. {d.get("SuccessCount",0)} installed successfully.',f'WU 30 d: {d.get("SuccessCount",0)} ok · 0 failed'))
     return out
 
+# key: (label, plain description, technical event description)
+SIGNALS_TEXT = {
+    'GpuResets':('Graphics driver resets','the graphics driver stopped responding and Windows restarted it','Display 4101 (TDR)'),
+    'DiskErrors':('Drive errors','the drive reported read problems or retries','disk 7/51/153'),
+    'StorageResets':('Drive resets','the drive stopped responding and Windows reset its controller','storport 129'),
+    'FileSystem':('File-system damage','Windows found file-system damage on a drive','Ntfs 55'),
+    'Hardware':('Hardware errors','the processor, memory or motherboard reported a hardware error','WHEA-Logger'),
+    'Thermal':('Processor slowdowns','the processor was slowed down by the firmware, usually because of heat or power limits','Kernel-Processor-Power 37'),
+    'LowMemory':('Low memory','Windows ran low on memory','Resource-Exhaustion-Detector 2004'),
+    'ServiceCrashes':('Service crashes','Windows services stopped unexpectedly','SCM 7031/7034'),
+    'WifiDrops':('Wi-Fi drops','the Wi-Fi connection dropped','WLAN-AutoConfig 8003'),
+    'AppHangs':('Programs not responding','programs stopped responding','Application Hang 1002'),
+    'AppCrashes':('Program crashes','programs crashed','Application Error 1000'),
+}
+
+def signal_items(d):
+    """Rows for each warning sign found in the logs."""
+    out=[]
+    for key,(label,plain,tech) in SIGNALS_TEXT.items():
+        sig=d.get(key) or {}
+        n=sig.get('Count') or 0
+        if not n:continue
+        top=[t for t in as_list(sig.get('Top')) if isinstance(t,dict) and t.get('Name')]
+        who=f' Mostly {top[0]["Name"]} ({top[0]["Count"]} of {n}).' if top and top[0].get('Count',0)*2>=n and n>=2 else ''
+        state='attention' if key in ('DiskErrors','StorageResets','FileSystem','Hardware','GpuResets') or sig.get('Week',0)>=3 else 'note'
+        out.append(_item(label,state,f'{n} time{"s" if n!=1 else ""} this month ({sig.get("Week",0)} this week), {plain}. Last: {str(sig.get("Last"))[:10]}.{who}',
+                         f'{tech}: {n} in 30 d, {sig.get("Week",0)} in 7 d, last {sig.get("Last")}'+(' · '+', '.join(f'{t["Name"]}×{t["Count"]}' for t in top[:3]) if top else '')))
+    if not out:out.append(_item('Event logs','good','No warning signs in the Windows logs this month.','No TDR, disk, storport, NTFS, WHEA, thermal, low-memory, service, Wi-Fi or app hang/crash events in 30 d'))
+    return out
+
 def items(name,d):
     """Structured rows for checks that have them (the Technician Deep checks screen); [] otherwise."""
     if not d.get('available'):return []
-    return security_items(d) if name=='security' else crash_items(d) if name=='crashes' else update_items(d) if name=='updates' else []
+    return security_items(d) if name=='security' else crash_items(d) if name=='crashes' else update_items(d) if name=='updates' else signal_items(d) if name=='event_signals' else []
 
 def month_year(iso):
     try:return datetime.fromisoformat(iso).strftime('%B %Y')
@@ -344,6 +398,9 @@ def describe(name, d):
             lines.append(f'{v.get("Drive")} drive: {v.get("FreeGB")} GB free of {v.get("SizeGB")} GB.')
         if not any(x.get('WearPercent') is not None or x.get('TemperatureC') for x in as_list(d.get('Disks'))):
             lines.append('Detailed SMART counters (wear, temperature) need PC Medic to run as administrator or are not exposed by this drive.')
+    elif name=='event_signals':
+        rows=signal_items(d)
+        lines+=[r['plain'] if r['area']=='Event logs' else f'• {r["area"]}: {r["plain"]}' for r in rows]
     elif name=='security':
         items=security_items(d);bad=[i for i in items if i['state'] in ('attention','problem')]
         notes=sum(1 for i in items if i['state']=='note')
@@ -415,6 +472,8 @@ def describe_technical(name, d):
                          + (f' · {extra}' if extra else ' · SMART detail needs admin') + f' · uncorrected errors {errors}')
         parts+=[f'{v.get("Drive")} {v.get("FreeGB")} / {v.get("SizeGB")} GB free' for v in as_list(d.get('Volumes'))]
         return 'Storage: '+' | '.join(parts)
+    if name=='event_signals':
+        return 'Event signals (30 d): '+' | '.join(r['tech'] for r in signal_items(d))
     if name=='security':
         return 'Security: '+' | '.join(f'{i["area"]} [{i["state"]}] {i["tech"]}' for i in security_items(d))
     if name=='crashes':
@@ -449,6 +508,9 @@ def for_cloud(name, d):
         apps=as_list(d.pop('Apps',None))
         d['AllUsers']=sum(a.get('Scope')=='All users' for a in apps);d['ThisUser']=len(apps)-d['AllUsers']
     if name=='battery':d.pop('Model',None)
+    if name=='event_signals':
+        for k in ('AppHangs','AppCrashes'):
+            if isinstance(d.get(k),dict):d[k].pop('Top',None)  # program names stay on this PC
     if name=='security':d.pop('LastPatch',None);d['Items']=[{k:i[k] for k in ('area','state','tech')} for i in security_items(d)]
     if name=='crashes':
         for b in as_list(d.get('BlueScreens')):

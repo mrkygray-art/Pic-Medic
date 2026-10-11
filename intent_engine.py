@@ -38,6 +38,14 @@ def classify(question, context=None):
         import error_codes
         code=error_codes.find_code(q)
         if code is not None:return {'intent':'error_code','code':f'0x{code:08X}','scan':'none'}
+    # Problems ("keeps freezing", "restarts randomly", "gets hot", "Wi-Fi keeps dropping") start a coordinated
+    # investigation (coordinator.py): the right checks, correlated, with the next test to run.
+    import coordinator
+    kind=coordinator.playbook_for(q)
+    cue=has(r'\b(keeps?|kept|constantly|randomly|always|every ?(time|day|now)|again|often|lately|started|for no reason|by itself|on its own|won.t stop)\b')
+    if (kind=='freeze' and has(r'\b(freez\w*|froze|frozen|lock\w* up|not responding)\b')) or kind in ('overheat','network') \
+            or (kind=='battery' and has(r'\b(drain\w*|dies|dying|doesn.t last|does not last|runs? out)\b')) or (kind in ('crash','app_crash') and cue):
+        return {'intent':'investigate','kind':kind,'scan':'none'}
     # Slowness starts a guided troubleshooting case (troubleshooter.py). When the wording says when it happens,
     # the case skips the "when is it slow?" question. Slow internet is a network problem, not a slow PC.
     if has(r'\b(slow\w*|sluggish|lag|lags|lagging|laggy|stutter\w*|takes (forever|ages|a long time)|unresponsive|hangs|hanging|bogged down)\b') \

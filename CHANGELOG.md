@@ -1,5 +1,18 @@
 # PC Medic AI changelog
 
+## Unreleased
+
+- **Diagnostic coordinator** (`coordinator.py`, `POST /api/coordinate`): describe a problem ("my computer keeps freezing", "my PC restarts randomly", "it gets really hot", "Wi-Fi keeps dropping", "Chrome keeps crashing", "battery drains fast") and PC Medic runs an investigation:
+  - it picks a playbook and runs that playbook's read-only routines in parallel (about 3–5 seconds);
+  - it correlates the evidence with technician rules: graphics driver resets, drive errors and resets, file-system damage, WHEA hardware errors, thermal throttling, low memory with live RAM use, one program behind the hangs, blue screens and their driver, hard freezes, Wi-Fi drops, battery wear, low disk space, pending restarts, and what changed this week;
+  - it ranks the next tests (Performance Watch, deep scan, memory test, Reliability Monitor, Health Check, devices, network, battery) as buttons.
+  - Home shows plain findings; Technician shows the raw evidence.
+- **The AI coordinates too:** Claude gets new read-only tools: `investigate_problem`, `get_what_changed`, `get_deep_scan`, `lookup_error_code` and `recommend_next_test`, whose pick becomes a button. In Claude mode it runs the investigation itself. In Smart mode, **Ask Claude to investigate further** hands Claude the evidence PC Medic already collected (stored server-side by ID, never with program names).
+- **Warning signs in the Windows logs** (`system_checks` check `event_signals`, 30 days, under a second): graphics driver resets (Display 4101), disk errors (7/51/153), storage resets (129), NTFS damage (55), WHEA hardware errors, processor throttling (Kernel-Processor-Power 37), low memory (2004), service crashes, Wi-Fi drops (8003), app hangs (1002) and crashes (1000). Program names stay on this PC.
+- **System Details** is now in Home mode too, with the manufacturer, model, computer type, and basic IP configuration (adapter, IPv4 and mask, gateway, DNS, DHCP). Technician mode adds BIOS, IPv6 and MAC. It's shown locally only and never sent to AI.
+- **A window served by an older PC Medic** now says so ("This window shows PC Medic 1.19.0, but the PC Medic running behind it is…") instead of showing "Not found" on newer features like the deep scan.
+- Routing: freezing, overheating, Wi-Fi drops, battery drain and repeated crashes or restarts start an investigation. "My computer is slow" still starts guided troubleshooting, and questions like "why did I get a blue screen?" still answer from the crash check.
+
 ## 1.19.0 (2026-10-11)
 
 - **Error-code lookup** (`error_codes.py`, `GET /api/error-code`): ask "what does 0x80070643 mean?" (or "update error 8024200B") and PC Medic explains it offline: what happened and what to do.

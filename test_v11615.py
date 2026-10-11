@@ -48,7 +48,7 @@ class TestIntentAcceptance(unittest.TestCase):
         ('Can you open PowerShell?', None, 'open_tool'),
         ('Can you open DOS?', None, 'open_tool'),
         ('How many ports do I have?', None, 'ports_clarify'),
-        ('My computer froze', None, 'performance'),
+        ('My computer froze', None, 'investigate'),  # 1.20: problems start a coordinated investigation
     ]
 
     def test_acceptance_table(self):
@@ -64,7 +64,7 @@ class TestIntentAcceptance(unittest.TestCase):
 
     def test_symptoms_are_not_shopping(self):
         self.assertEqual(classify('My laptop is not charging')['intent'], 'guided_knowledge')
-        self.assertEqual(classify('My battery drains fast')['check'], 'battery')  # now answered by a real battery check
+        self.assertEqual(classify('My battery drains fast'), {'intent': 'investigate', 'kind': 'battery', 'scan': 'none'})  # includes the battery check
 
     def test_affirmation_without_offer_does_not_research(self):
         r = classify('Yes, research it')
