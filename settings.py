@@ -25,7 +25,7 @@ KEY_FORMAT = {'anthropic': re.compile(r'sk-ant-[A-Za-z0-9_\-]{20,300}'), 'openai
 TRIAL_LIMIT = 10
 CREDENTIAL_PREFIX = 'PCMedic'
 # GitHub project whose Releases carry the installers. PCMEDIC_UPDATE_REPO overrides it; '' disables update checks.
-UPDATE_REPO = os.environ.get('PCMEDIC_UPDATE_REPO', 'mrkygray-art/Pic-Medic')
+UPDATE_REPO = os.environ.get('PCMEDIC_UPDATE_REPO', 'mrkygray-art/pc-medic')
 DATA_FILE = None  # set by dashboard.py: <data folder>/settings.json
 IGNORE_ENVIRONMENT = False  # --ignore-env-keys: test the trial and Settings as a new user would
 LOCK = threading.Lock()

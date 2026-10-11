@@ -82,7 +82,7 @@ class TestKeysAndTrial(unittest.TestCase):
         import urllib.error
         def not_found(_):
             raise urllib.error.HTTPError('u', 404, 'Not Found', {}, None)
-        with patch('settings.UPDATE_REPO', 'mrkygray-art/Pic-Medic'):
+        with patch('settings.UPDATE_REPO', 'mrkygray-art/pc-medic'):
             r = settings.check_for_update(fetch=not_found)
         self.assertEqual((r['available'], r['note']), (False, 'No releases have been published yet.'))
 

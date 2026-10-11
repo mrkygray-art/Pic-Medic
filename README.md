@@ -18,7 +18,7 @@ Runs on Windows 10 and 11 laptops and desktops. Windows Server is out of scope.
 
 ## Install
 
-1. Download `PCMedic-Setup-<version>.exe` from [Releases](https://github.com/mrkygray-art/Pic-Medic/releases/latest).
+1. Download `PCMedic-Setup-<version>.exe` from [Releases](https://github.com/mrkygray-art/pc-medic/releases/latest).
 2. Run it. It installs for your Windows account only, so no administrator approval is needed, and adds PC Medic to the Start menu.
 3. The installer isn't code-signed yet, so Windows SmartScreen may say "Windows protected your PC". Click **More info**, then **Run anyway**. You can compare the file's SHA-256 with the one in the release notes (`Get-FileHash .\PCMedic-Setup-*.exe`).
 
@@ -56,7 +56,7 @@ A key set as `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` on the PC also works. Instal
 
 ## Updates
 
-PC Medic checks [GitHub Releases](https://github.com/mrkygray-art/Pic-Medic/releases) on startup. When a newer version exists, it shows a direct link to its Windows installer. You can turn this off in Settings, or point it elsewhere with `PCMEDIC_UPDATE_REPO`.
+PC Medic checks [GitHub Releases](https://github.com/mrkygray-art/pc-medic/releases) on startup. When a newer version exists, it shows a direct link to its Windows installer. You can turn this off in Settings, or point it elsewhere with `PCMEDIC_UPDATE_REPO`.
 
 To publish an update, bump `version.py`, then create a GitHub Release tagged `vX.Y.Z` with the installer attached.
 

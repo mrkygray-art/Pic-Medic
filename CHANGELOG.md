@@ -1,5 +1,9 @@
 # PC Medic AI changelog
 
+## Unreleased
+
+- The GitHub repository is now `mrkygray-art/pc-medic` (it was `Pic-Medic`). Update checks use the new name. Copies of 1.18.0 and 1.18.1 still find updates through GitHub's redirect.
+
 ## 1.18.1 (2026-10-11)
 
 - A window left open while PC Medic restarts now says "PC Medic was restarted. Press F5 to reload this window" instead of failing with a confusing error (its old code and token no longer match the server).
