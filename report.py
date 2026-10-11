@@ -11,7 +11,7 @@ import system_checks
 from analyze import analyze
 from event_log_analyzer import summarize_events
 
-VERSION = '1.16.15'
+from version import VERSION
 REPORT_CHECKS = ('battery', 'disk_health', 'crashes', 'updates', 'pending_reboot', 'startup_apps', 'listening_ports')
 
 STYLE = """

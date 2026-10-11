@@ -1,4 +1,4 @@
-"""PC Medic AI 1.16.15: localhost-only, read-only diagnostics and offline guided Q&A."""
+"""PC Medic AI: localhost-only, read-only diagnostics and guided troubleshooting."""
 import argparse
 import json
 import os
@@ -24,6 +24,7 @@ from performance_diagnostics import collect_performance, summarize
 from storage_explorer import inventory, recycle
 from device_diagnostics import inventory as device_inventory
 import system_checks
+from version import VERSION
 import local_security
 import socket
 import assistant
@@ -534,7 +535,7 @@ def main():
  server=start_server(a.port);server.demo=a.demo
  port=server.server_address[1]
  if port!=a.port:print(f'Port {a.port} is in use (perhaps PC Medic in another Windows account), so this copy uses {port}.',flush=True)
- print(f'PC Medic AI 1.16.15: http://127.0.0.1:{port} ({"SIMULATED DEMO" if a.demo else "LOCAL SCAN"})',flush=True)
+ print(f'PC Medic AI {VERSION}: http://127.0.0.1:{port} ({"SIMULATED DEMO" if a.demo else "LOCAL SCAN"})',flush=True)
  print('Diagnostics are read-only. Storage Explorer can move explicitly selected personal files to Recycle Bin. Ctrl+C to stop.',flush=True)
  try:server.serve_forever()
  except KeyboardInterrupt:pass

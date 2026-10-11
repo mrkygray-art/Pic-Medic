@@ -1,6 +1,6 @@
 # PC Medic AI
 
-A local Windows diagnostic assistant for **laptops and desktops** running Windows 10/11; Windows Server is out of scope. `dashboard.py` is a stdlib HTTP server on 127.0.0.1:8765 that serves the single-page UI `dashboard.html`. Built by Ky with ChatGPT through 1.16.14; Claude Code took over at 1.16.15 (see README_V11615.md).
+A local Windows diagnostic assistant for **laptops and desktops** running Windows 10/11; Windows Server is out of scope. `dashboard.py` is a stdlib HTTP server on 127.0.0.1:8765 that serves the single-page UI `dashboard.html`. Built by Ky with ChatGPT through 1.16.14; Claude Code took over at 1.16.15; see CHANGELOG.md. The version lives in `version.py`.
 
 ## Run and test
 - Run: `python -u .\dashboard.py` (add `--demo` for simulated data, `--port 8766` for a side-by-side test copy).

@@ -18,6 +18,14 @@ from intent_engine import classify
 PENDING = {'pending_research': 'RAM'}
 
 
+class TestVersion(unittest.TestCase):
+    def test_page_labels_match_version_py(self):
+        import re
+        from version import VERSION
+        html = open('dashboard.html', encoding='utf-8').read()
+        self.assertEqual(set(re.findall(r'PC Medic AI (\d+\.\d+\.\d+)', html)), {VERSION})
+
+
 class TestIntentAcceptance(unittest.TestCase):
     """The acceptance table from the project handoff."""
     cases = [
