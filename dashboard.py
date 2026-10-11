@@ -640,7 +640,9 @@ class Handler(BaseHTTPRequestHandler):
    if turns is not None and not isinstance(turns,list):return self.send_json({'error':'Invalid conversation'},400)
    try:scan=get_report(self.server.demo)
    except (FileNotFoundError,ValueError,OSError,json.JSONDecodeError):scan=None
-   content=tech_report.generate(scan,turns).encode('utf-8')
+   raw=body.get('service') if isinstance(body.get('service'),dict) else {}
+   service={k:str(raw.get(k) or '').strip()[:120] for k in ('customer','technician','date','ticket')}  # printed in the report only; never saved or sent
+   content=tech_report.generate(scan,turns,service=service).encode('utf-8')
    self.send_response(200);self.send_header('Content-Type','text/html; charset=utf-8');self.send_header('Content-Length',str(len(content)));self.send_header('Cache-Control','no-store');self.send_header('X-Content-Type-Options','nosniff');self.end_headers()
    return self.wfile.write(content)
   if path=='/api/assistant':

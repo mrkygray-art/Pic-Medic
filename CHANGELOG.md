@@ -1,5 +1,20 @@
 # PC Medic AI changelog
 
+## Unreleased
+
+- **Technician report, redesigned** (`report.py`):
+  - **Service details:** customer name, ticket number, technician and service date. A short form opens when you create the report; the technician name is remembered on this PC and the date defaults to today. The fields stay editable in the report. The customer name and ticket number are never saved or sent.
+  - **Main report in two pages:** service details, an "At a glance" table, numbered next steps, the computer, Health Check findings, troubleshooting history, notes, a signature and date line, and the disclaimer at the end.
+    - "At a glance" has a status for security, storage, battery, stability, Windows Update, warning signs in the Windows logs and the network.
+    - Next steps come from the same correlation rules as investigations, the update error lookup and the Health Check.
+  - **Technical appendix** on its own page, optional when printing: every check's plain and technical output, the deep scan, recent Windows errors and the session Q&A.
+- **Battery:** reports lead with the measured capacity. A pace-based forecast is now labeled "Rough projection… a guide, not a prediction", and it's dropped when it would reach beyond five years. Wear isn't linear.
+- **Network exposure in context:**
+  - each listening port shows what it's bound to (all interfaces, one address, or this PC only) and its process;
+  - plus the firewall status per profile with its default inbound rule, and the current network type (Public, Private or Domain);
+  - plus a plain reminder that listening isn't the same as exposed, because the firewall and router decide reachability.
+  - Claude sees the binding, never the process.
+
 ## 1.20.0 (2026-10-11)
 
 - **Diagnostic coordinator** (`coordinator.py`, `POST /api/coordinate`): describe a problem ("my computer keeps freezing", "my PC restarts randomly", "it gets really hot", "Wi-Fi keeps dropping", "Chrome keeps crashing", "battery drains fast") and PC Medic runs an investigation:

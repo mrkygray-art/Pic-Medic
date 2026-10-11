@@ -45,6 +45,36 @@ class TestBuild(unittest.TestCase):
         self.assertNotIn('x' * 4001, page)
 
 
+class TestLayout(unittest.TestCase):
+    def test_service_fields_are_printed_and_escaped(self):
+        page = report.build(OVERVIEW, None, CHECKS, [], generated=datetime(2026, 10, 10, 17, 0),
+                            service={'customer': 'Jane <b>Doe</b>', 'technician': 'Ky', 'ticket': 'T-1001'})
+        for text in ('Customer', 'Jane &lt;b&gt;Doe&lt;/b&gt;', 'Ticket number', 'T-1001', 'Technician', 'Service date', '2026-10-10'):
+            self.assertIn(text, page)
+        self.assertNotIn('<b>Doe', page)
+
+    def test_main_report_then_optional_appendix(self):
+        page = report.build(OVERVIEW, None, CHECKS, [{'q': 'hi', 'a': 'there'}], generated=datetime(2026, 10, 10, 17, 0))
+        main, appendix = page.split('<section class="appendix">')
+        for text in ('At a glance', 'Recommended next steps', 'Technician notes', 'Technician signature', 'Read-only diagnostics'):
+            self.assertIn(text, main)
+        for text in ('Appendix: technical details', 'Q: hi', 'about 95% of new'):
+            self.assertIn(text, appendix)
+        self.assertIn('no-appendix', page)  # the print toggle
+
+    def test_battery_is_measured_not_forecast(self):
+        rows = {r[0]: r for r in report.glance(CHECKS)}
+        self.assertIn('Measured capacity 95% of original', rows['Battery'][2])
+
+    def test_network_row_gives_context(self):
+        ports = {'available': True, 'Tcp': [{'Port': 445, 'Scope': 'all', 'Process': 'System'}, {'Port': 5000, 'Scope': 'loopback'}],
+                 'Firewall': [{'Profile': 'Public', 'Enabled': True, 'DefaultInbound': 'NotConfigured'}], 'NetworkTypes': ['Private']}
+        area, state, text = report.glance({'listening_ports': ports})[0]
+        self.assertIn('1 TCP ports listen on a network interface', text)
+        self.assertIn('Firewall on', text)
+        self.assertIn('not the same as exposed', text)
+
+
 class TestEventDates(unittest.TestCase):
     def test_powershell_dates_become_iso(self):
         from event_log_analyzer import event_time

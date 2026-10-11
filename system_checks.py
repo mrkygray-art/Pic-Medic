@@ -89,9 +89,11 @@ $rename=(Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manage
 
 PORTS = r'''
 $names=@{};Get-Process | ForEach-Object {$names[$_.Id]=$_.ProcessName}
-$tcp=@(Get-NetTCPConnection -State Listen | Sort-Object LocalPort,LocalAddress -Unique | Select-Object -First 80 | ForEach-Object {
- [pscustomobject]@{Port=$_.LocalPort;LocalOnly=($_.LocalAddress -in '127.0.0.1','::1');Process=$names[[int]$_.OwningProcess]}})
-[pscustomobject]@{Tcp=$tcp;UdpCount=@(Get-NetUDPEndpoint).Count}|ConvertTo-Json -Depth 3 -Compress
+$tcp=@(Get-NetTCPConnection -State Listen | Sort-Object LocalPort,LocalAddress -Unique | Select-Object -First 80 | ForEach-Object { $a=[string]$_.LocalAddress
+ [pscustomobject]@{Port=$_.LocalPort;LocalOnly=($a -in '127.0.0.1','::1');Scope=$(if($a -in '127.0.0.1','::1'){'loopback'}elseif($a -in '0.0.0.0','::'){'all'}else{'specific'});Process=$names[[int]$_.OwningProcess]}})
+$fw=@(Get-NetFirewallProfile | ForEach-Object {[pscustomobject]@{Profile=[string]$_.Name;Enabled=[bool]$_.Enabled;DefaultInbound=[string]$_.DefaultInboundAction}})
+$nets=@(Get-NetConnectionProfile | ForEach-Object {[string]$_.NetworkCategory})
+[pscustomobject]@{Tcp=$tcp;UdpCount=@(Get-NetUDPEndpoint).Count;Firewall=$fw;NetworkTypes=$nets}|ConvertTo-Json -Depth 3 -Compress
 '''
 
 SECURITY = r'''
@@ -348,6 +350,32 @@ def signal_items(d):
     if not out:out.append(_item('Event logs','good','No warning signs in the Windows logs this month.','No TDR, disk, storport, NTFS, WHEA, thermal, low-memory, service, Wi-Fi or app hang/crash events in 30 d'))
     return out
 
+SCOPE_RANK={'all':2,'specific':1,'loopback':0}
+
+def port_list(d):
+    """One entry per port (IPv4 and IPv6 listeners merged), keeping the widest binding."""
+    ports={}
+    for t in as_list(d.get('Tcp')):
+        if not isinstance(t,dict):continue
+        scope=t.get('Scope') or ('loopback' if t.get('LocalOnly') else 'all')
+        cur=ports.get(t.get('Port'))
+        if not cur or SCOPE_RANK[scope]>SCOPE_RANK[cur['Scope']]:ports[t.get('Port')]={**t,'Scope':scope}
+    return sorted(ports.values(),key=lambda t:t.get('Port') or 0)
+
+def port_context(d):
+    """What 'listening' does and doesn't mean on this PC."""
+    fw=[f for f in as_list(d.get('Firewall')) if isinstance(f,dict)]
+    nets=[n for n in as_list(d.get('NetworkTypes')) if n]
+    out=[]
+    if fw:
+        off=[f['Profile'] for f in fw if not f.get('Enabled')]
+        blocks=all(str(f.get('DefaultInbound')) in ('Block','NotConfigured') for f in fw)
+        out.append(('Windows Firewall is on for all network types' if not off else f'Windows Firewall is OFF for {", ".join(off)}')+
+                   (', and blocks incoming connections unless a rule allows them.' if blocks and not off else '.'))
+    if nets:out.append(f'Current network type: {", ".join(nets)}.'+(' On Public networks Windows allows fewer incoming connections.' if 'Public' in nets else ''))
+    out.append('A listening port is not the same as exposed: other devices can only reach it if the firewall allows it, and the internet can only reach it if the router forwards that port.')
+    return out
+
 def items(name,d):
     """Structured rows for checks that have them (the Technician Deep checks screen); [] otherwise."""
     if not d.get('available'):return []
@@ -382,9 +410,9 @@ def describe(name, d):
         if t:
             lines.append(f'Since {month_year(t["since"])} it went from {t["from"]}% to {t["to"]}% of new over {span_text(t["months"])}.'
                          if t['from']!=t['to'] else f'It has held steady since {month_year(t["since"])}.')
-            if t.get('months_to_80'):
-                lines.append('At that pace it stays above 80%, where most people start to notice shorter battery life, for more than 5 years.' if t['months_to_80']>60 else
-                             f'At that pace it reaches 80%, where most people start to notice shorter battery life, in about {span_text(t["months_to_80"])}.')
+            if t.get('months_to_80') and t['months_to_80']<=60:  # beyond five years a straight-line forecast says nothing useful
+                lines.append(f'Rough projection: if wear continued at that pace it would reach 80%, where most people notice shorter battery life, in about {span_text(t["months_to_80"])}. '
+                             'Battery wear often speeds up with age and heat, so treat this as a guide, not a prediction.')
     elif name=='disk_health':
         for disk in as_list(d.get('Disks')):
             bits=[f'{disk.get("Name")} ({disk.get("MediaType") or "disk"}, {disk.get("SizeGB")} GB): health status {disk.get("Health") or "unknown"}']
@@ -442,13 +470,13 @@ def describe(name, d):
         if d.get('PendingFileRename') and not pending:lines.append('Some files are queued to be replaced at the next restart (common after installing software).')
         lines.append(f'Last restart: {str(d.get("LastBoot"))[:10]} ({d.get("UptimeDays")} days ago).'+(' Restarting regularly helps updates finish and frees memory.' if (d.get('UptimeDays') or 0)>=7 else ''))
     elif name=='listening_ports':
-        tcp=list({(t.get('Port'),t.get('LocalOnly')):t for t in as_list(d.get('Tcp'))}.values())  # IPv4 and IPv6 listeners on the same port
-        exposed=[t for t in tcp if not t.get('LocalOnly')];dynamic=[t for t in exposed if (t.get('Port') or 0)>=49152]
-        lines.append(f'{len(tcp)} TCP ports are listening; {len(exposed)} accept connections from the network and {len(tcp)-len(exposed)} only from this PC. UDP endpoints: {d.get("UdpCount",0)}.')
+        tcp=port_list(d);exposed=[t for t in tcp if t['Scope']!='loopback'];dynamic=[t for t in exposed if (t.get('Port') or 0)>=49152]
+        lines.append(f'{len(tcp)} TCP ports are listening: {len(exposed)} on a network interface and {len(tcp)-len(exposed)} only for programs on this PC. UDP endpoints: {d.get("UdpCount",0)}.')
         for t in [t for t in exposed if t not in dynamic][:12]:
-            label=' · '.join(x for x in (WELL_KNOWN.get(t.get('Port')),t.get('Process')) if x)
-            lines.append(f'Port {t.get("Port")}'+(f': {label}' if label else ''))
+            label=' · '.join(x for x in (WELL_KNOWN.get(t.get('Port')),t.get('Process'),'all interfaces' if t['Scope']=='all' else 'one network address') if x)
+            lines.append(f'Port {t.get("Port")}: {label}')
         if dynamic:lines.append(f'Plus {len(dynamic)} high-numbered ports (49152+), normally Windows services using dynamic ports.')
+        lines+=port_context(d)
         lines.append('Physical ports (USB, HDMI) cannot be counted from Windows; check the manufacturer specifications for your model.')
     return TITLES[name]+':\n'+'\n'.join(lines)
 
@@ -492,9 +520,10 @@ def describe_technical(name, d):
         return (f'Reboot pending: CBS {bool(d.get("ComponentServicing"))} · WU {bool(d.get("WindowsUpdate"))} · PendingFileRename {bool(d.get("PendingFileRename"))}'
                 f' · last boot {str(d.get("LastBoot"))[:10]} (up {d.get("UptimeDays")} d)')
     if name=='listening_ports':
-        tcp=list({(t.get('Port'),t.get('LocalOnly')):t for t in as_list(d.get('Tcp'))}.values())
-        external=sorted({t.get('Port') for t in tcp if not t.get('LocalOnly')})
-        return f'TCP listening {len(tcp)} · external {len(external)}: ' + ', '.join(str(p) for p in external[:20]) + f' · UDP endpoints {d.get("UdpCount",0)}'
+        tcp=port_list(d);scoped=[t for t in tcp if t['Scope']!='loopback']
+        fw=' '.join(f'{f.get("Profile")}:{"on" if f.get("Enabled") else "OFF"}/{f.get("DefaultInbound") or "?"}' for f in as_list(d.get('Firewall')) if isinstance(f,dict))
+        return (f'TCP listening {len(tcp)} · bound to a network interface {len(scoped)}: ' + ', '.join(f'{t["Port"]}{"*" if t["Scope"]=="all" else ""}' for t in scoped[:20])
+                + f' (* = 0.0.0.0/::) · UDP endpoints {d.get("UdpCount",0)} · firewall {fw or "?"} · network {", ".join(as_list(d.get("NetworkTypes"))) or "?"}')
     return TITLES[name]
 
 def for_cloud(name, d):
@@ -502,8 +531,7 @@ def for_cloud(name, d):
     if not d.get('available'):return {'available':False,'reason':d.get('reason')}
     d=json.loads(json.dumps(d))
     if name=='listening_ports':
-        unique={(t.get('Port'),t.get('LocalOnly')):t for t in as_list(d.get('Tcp'))}.values()
-        d['Tcp']=[{'Port':t.get('Port'),'LocalOnly':t.get('LocalOnly'),'Service':WELL_KNOWN.get(t.get('Port'))} for t in unique]
+        d['Tcp']=[{'Port':t.get('Port'),'Scope':t['Scope'],'Service':WELL_KNOWN.get(t.get('Port'))} for t in port_list(d)]  # no process names
     if name=='startup_apps':
         apps=as_list(d.pop('Apps',None))
         d['AllUsers']=sum(a.get('Scope')=='All users' for a in apps);d['ThisUser']=len(apps)-d['AllUsers']

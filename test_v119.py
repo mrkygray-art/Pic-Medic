@@ -39,14 +39,17 @@ class TestBatteryReport(unittest.TestCase):
         text = system_checks.describe('battery', d)
         self.assertIn('lasts about 1 h 29 min of active use (about 1 h 34 min when it was new)', text)
         self.assertIn('Since January 2024 it went from 100% to 95% of new over 2 years and 8 months.', text)
-        self.assertIn('stays above 80%', text)
+        self.assertNotIn('projection', text)  # no straight-line forecast beyond five years
         self.assertNotIn('about about', text)
         self.assertIn('runtime 1 h 29 min full', system_checks.describe_technical('battery', d))
 
     def test_projection_when_wearing_fast(self):
         d = battery(HealthPercent=86, History=[{'Date': '2025-10-01', 'Full_mWh': 60000}, {'Date': '2026-10-01', 'Full_mWh': 51600}])
         self.assertEqual(d['Trend']['months_to_80'], 5)
-        self.assertIn('reaches 80%, where most people start to notice shorter battery life, in about 5 months.', system_checks.describe('battery', d))
+        text = system_checks.describe('battery', d)
+        self.assertIn('Rough projection: if wear continued at that pace it would reach 80%', text)
+        self.assertIn('in about 5 months', text)
+        self.assertIn('not a prediction', text)
 
     def test_short_history_has_no_trend_and_missing_runtime_is_left_out(self):
         d = battery(RuntimeFull='PT0S', History=[{'Date': '2026-09-01', 'Full_mWh': 57000}, {'Date': '2026-10-01', 'Full_mWh': 56800}])

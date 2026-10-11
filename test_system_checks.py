@@ -29,7 +29,8 @@ class TestSummaries(unittest.TestCase):
         data = {'available': True, 'UdpCount': 2, 'Tcp': [{'Port': 135, 'LocalOnly': False, 'Process': 'svchost'}, {'Port': 135, 'LocalOnly': False, 'Process': 'svchost'},
                                                           {'Port': 49664, 'LocalOnly': False, 'Process': 'lsass'}, {'Port': 5939, 'LocalOnly': True, 'Process': 'x'}]}
         text = sc.describe('listening_ports', data)
-        self.assertIn('3 TCP ports are listening; 2 accept connections from the network', text)
+        self.assertIn('3 TCP ports are listening: 2 on a network interface and 1 only for programs on this PC', text)
+        self.assertIn('not the same as exposed', text)
         self.assertEqual(text.count('Port 135'), 1)
         self.assertIn('Plus 1 high-numbered ports', text)
 
@@ -40,7 +41,7 @@ class TestSummaries(unittest.TestCase):
 class TestCloudPrivacy(unittest.TestCase):
     def test_no_process_or_app_names_or_battery_model(self):
         ports = sc.for_cloud('listening_ports', {'available': True, 'Tcp': [{'Port': 3389, 'LocalOnly': False, 'Process': 'svchost'}, {'Port': 3389, 'LocalOnly': False, 'Process': 'svchost'}]})
-        self.assertEqual(ports['Tcp'], [{'Port': 3389, 'LocalOnly': False, 'Service': 'Remote Desktop'}])
+        self.assertEqual(ports['Tcp'], [{'Port': 3389, 'Scope': 'all', 'Service': 'Remote Desktop'}])
         apps = sc.for_cloud('startup_apps', {'available': True, 'Count': 2, 'Apps': [{'Name': 'SecretTool', 'Scope': 'This user'}, {'Name': 'Teams', 'Scope': 'All users'}]})
         self.assertNotIn('SecretTool', json.dumps(apps))
         self.assertEqual((apps['AllUsers'], apps['ThisUser']), (1, 1))

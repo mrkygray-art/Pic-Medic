@@ -161,6 +161,8 @@ body.tech .tile .txt{font-family:var(--mono);font-size:11.5px;line-height:1.5;ov
 .check-row .state i{font-style:normal;width:15px;height:15px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:var(--surface)}
 .deep-head{margin:22px 0 8px!important;font-size:15px!important}.deep-option{display:block;margin:4px 0 2px}
 @media(max-width:700px){.check-row{grid-template-columns:1fr}.check-row .tech{grid-column:1}}
+.report-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 4px}.report-fields label{display:grid;gap:4px;font-size:13px;font-weight:600}.report-fields input{padding:7px 10px;font:inherit;font-weight:400}
+@media(max-width:560px){.report-fields{grid-template-columns:1fr}}
 /* Fixes */
 .fixes-list{display:flex;flex-direction:column;margin-top:14px;border:1px solid var(--border);border-radius:8px;overflow:hidden}
 .fix-row{display:flex;align-items:center;gap:14px;padding:12px 14px;background:var(--surface)}.fix-row+.fix-row{border-top:1px solid var(--border)}
@@ -208,7 +210,7 @@ body:not(.tech) #status{display:none!important}
 <section id="windows-tools" class="navsection"><div class="panel"><div class="sectionhead"><h2>Windows Tools &amp; Guided Actions</h2><span class="pill">User-approved · Local</span></div><p class="muted small">PC Medic can guide you to the right Windows utility. Every launch requires your confirmation. Opening a tool does not change settings, delete files, repair drivers, or optimize a disk.</p><div id="windows-recommendation" class="assist-note">Run a health check to see suggested next steps.</div><div class="tool-grid" id="windows-tool-list"></div><div id="windows-tool-status" class="response" role="status" aria-live="polite">Select a tool to open it in Windows.</div></div></section>
 <section id="fixes" class="navsection"><div class="panel"><div class="sectionhead"><h2>Fixes</h2><span class="pill">Saved on this PC</span></div><p class="muted">Problems PC Medic helped with, what you tried, and whether it helped. They also appear in the report you can send to a technician.</p><div id="fixes-list" class="fixes-list"></div><div class="actions below"><button type="button" class="primary" id="fixes-new">Fix something new</button></div></div></section><section id="home-tools" class="navsection"><div class="panel"><h2>Tools</h2><p class="muted">Everything PC Medic can check or open for you. Windows tools open only after you confirm.</p><div id="home-tools-groups"></div><div id="home-tools-status" class="muted small below" role="status" aria-live="polite"></div><p class="muted small">Advanced tools such as the Registry Editor and Driver Verifier are in Technician mode.</p></div></section><section id="findings" class="navsection"><div class="panel"><h2>Diagnostic findings</h2><p class="muted small">Observations are not confirmed causes. Checkboxes mean “include in AI investigation,” not “fixed.” Review evidence before making changes.</p><div id="all-findings" class="stack below"></div></div></section>
 <section id="system" class="navsection"><div class="panel"><h2>System details</h2><p class="muted small">Information collected from your local Windows system. It stays on this PC.</p><h3 class="deep-head">This computer</h3><div class="detail-grid below" id="system-identity"></div><h3 class="deep-head">Windows and hardware</h3><div class="detail-grid below" id="system-details"></div><h3 class="deep-head">Network (IP configuration)</h3><div class="detail-grid below" id="system-ip"></div><details class="technical"><summary>Collector status</summary><pre id="collector-output">Waiting for report.</pre></details></div></section><section id="settings" class="navsection"><div class="panel"><h2>Settings</h2><p class="muted small">AI keys are stored in Windows Credential Manager for your Windows account. PC Medic never shows a saved key again and sends it only to that AI provider.</p><div id="settings-ai" class="detail-grid below"></div><div id="settings-google" class="detail below"></div><div id="settings-trial" class="assist-note"></div><h3 style="margin-top:22px">Updates</h3><label class="small"><input type="checkbox" id="settings-updates"> Check for new versions when PC Medic starts</label> <button type="button" id="settings-check-update" class="secondary">Check now</button><div id="settings-update-note" class="muted small below"></div><div id="settings-update-status" class="small" role="status" aria-live="polite"></div><div id="settings-status" class="assist-status" role="status" aria-live="polite">Changes take effect immediately.</div></div></section>
-<dialog id="mode-chooser" class="pc-confirm mode-chooser" aria-labelledby="mode-chooser-title"><h2 id="mode-chooser-title">Welcome to PC Medic</h2><p>How should PC Medic talk to you? You can switch any time at the top of the window.</p><div class="mode-options"><button type="button" data-pick="home"><b>Home</b><span>Plain English and step-by-step help. Best if you just want your computer to work.</span></button><button type="button" data-pick="tech"><b>Technician</b><span>Raw values, event IDs, error codes and every tool. For people who fix computers.</span></button></div></dialog><footer class="footer">PC Medic AI 1.20.0 · Read-only Windows diagnostics · Cloud sharing only after explicit approval · Never share raw exported reports without reviewing them.</footer></main></div>
+<dialog id="report-dialog" class="pc-confirm"><form method="dialog" id="report-form"><h2>Technician report</h2><p class="muted small">Printed on the report only. PC Medic remembers the technician name on this PC and nothing else.</p><div class="report-fields"><label>Customer name<input id="report-customer" maxlength="120" autocomplete="off"></label><label>Ticket number<input id="report-ticket" maxlength="120" autocomplete="off"></label><label>Technician name<input id="report-technician" maxlength="120" autocomplete="name"></label><label>Service date<input id="report-date" type="date"></label></div><div class="modal-actions"><button type="button" class="secondary" id="report-cancel">Cancel</button><button type="submit" class="primary" id="report-create">Create report</button></div></form></dialog><dialog id="mode-chooser" class="pc-confirm mode-chooser" aria-labelledby="mode-chooser-title"><h2 id="mode-chooser-title">Welcome to PC Medic</h2><p>How should PC Medic talk to you? You can switch any time at the top of the window.</p><div class="mode-options"><button type="button" data-pick="home"><b>Home</b><span>Plain English and step-by-step help. Best if you just want your computer to work.</span></button><button type="button" data-pick="tech"><b>Technician</b><span>Raw values, event IDs, error codes and every tool. For people who fix computers.</span></button></div></dialog><footer class="footer">PC Medic AI 1.20.0 · Read-only Windows diagnostics · Cloud sharing only after explicit approval · Never share raw exported reports without reviewing them.</footer></main></div>
 <dialog id="pc-confirm" class="pc-confirm" aria-labelledby="pc-confirm-title"><h2 id="pc-confirm-title">Open Windows tool?</h2><p id="pc-confirm-message"></p><div class="modal-actions"><button id="pc-confirm-cancel" type="button" class="secondary">Cancel</button><button id="pc-confirm-ok" type="button" class="primary">Continue</button></div></dialog>
 <script>
 'use strict';
@@ -319,13 +321,27 @@ function conversationTurns(){
  if(currentQuestion||$('symptom').value.trim())turns.push({q:currentQuestion,a:$('symptom').value.trim()});
  return turns.slice(-40);
 }
-$('tech-report').onclick=async()=>{
+// The report form: customer, ticket, technician (remembered on this PC) and service date (today by default).
+$('tech-report').onclick=()=>{
+ const d=$('report-dialog');let tech='';try{tech=localStorage.getItem('pcmedic-technician')||''}catch(e){}
+ $('report-customer').value='';$('report-ticket').value='';$('report-technician').value=tech;
+ const now=new Date();$('report-date').value=new Date(now-now.getTimezoneOffset()*60000).toISOString().slice(0,10);
+ d.showModal();$('report-customer').focus();
+};
+$('report-cancel').onclick=()=>$('report-dialog').close();
+$('report-form').onsubmit=e=>{
+ e.preventDefault();
+ const service={customer:$('report-customer').value.trim(),ticket:$('report-ticket').value.trim(),technician:$('report-technician').value.trim(),date:$('report-date').value};
+ try{localStorage.setItem('pcmedic-technician',service.technician)}catch(err){}
+ $('report-dialog').close();createReport(service);
+};
+async function createReport(service){
  const win=window.open('','_blank');  // opened during the click so pop-up blockers allow it
  const button=$('tech-report');button.disabled=true;
  $('assistant-status').textContent='Building technician report · running read-only checks (about 10 seconds)…';
  if(win)win.document.write('<p style="font:16px system-ui;padding:24px">Building PC Medic report…</p>');
  try{
-  const r=await fetch('/api/technician-report',{method:'POST',headers:{'Content-Type':'application/json','X-PC-Medic-Token':token},body:JSON.stringify({conversation:conversationTurns()})});
+  const r=await fetch('/api/technician-report',{method:'POST',headers:{'Content-Type':'application/json','X-PC-Medic-Token':token},body:JSON.stringify({conversation:conversationTurns(),service})});
   if(!r.ok)throw Error((await r.json().catch(()=>({}))).error||'HTTP '+r.status);
   const page=await r.text(),name='pc-medic-report-'+new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')+'.html';
   if(win){win.document.open();win.document.write(page);win.document.close();}
@@ -333,7 +349,7 @@ $('tech-report').onclick=async()=>{
   $('assistant-status').textContent=win?'Technician report opened in a new tab · use Print / Save as PDF there.':'Technician report downloaded as '+name+'.';
  }catch(e){win?.close();$('assistant-status').textContent='Report could not be built: '+e.message;}
  finally{button.disabled=false;}
-};
+}
 // Fallback engine: when the offline rules have no answer, Smart mode asks Claude (or ChatGPT),
 // and with no AI service a problem description starts the Health Check.
 let openaiReady=false,openaiConsent=false;
