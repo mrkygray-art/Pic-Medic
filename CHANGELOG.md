@@ -1,6 +1,6 @@
 # PC Medic AI changelog
 
-## Unreleased
+## 1.21.1 (2026-10-11)
 
 - A window served by an older PC Medic now shows a **Restart PC Medic** banner that stays at the top. It names both versions and says to close any copy running in a terminal. The technician report button is disabled until then, because an older program ignores newer report fields, as it did with the service details.
 - **Fix:** opening the installed PC Medic reused any PC Medic already running for your account, even an older copy left running in a terminal, so the window showed that old version's behavior. It now reuses only a copy of the same version; otherwise it starts its own.
