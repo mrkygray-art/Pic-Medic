@@ -31,6 +31,7 @@ import assistant
 import settings
 import troubleshooter
 import report as tech_report
+import today
 
 BASE = Path(__file__).resolve().parent
 FROZEN = getattr(sys, 'frozen', False)
@@ -379,7 +380,10 @@ class Handler(BaseHTTPRequestHandler):
    name=(parse_qs(urlparse(self.path).query).get('name') or [''])[0]
    if name not in system_checks.SCRIPTS:return self.send_json({'error':'Unknown check'},400)
    data=system_checks.check(name)
-   return self.send_json({'name':name,'available':data.get('available',False),'summary':system_checks.describe(name,data)})
+   return self.send_json({'name':name,'available':data.get('available',False),'summary':system_checks.describe(name,data),'technical':system_checks.describe_technical(name,data)})
+  if path=='/api/today':
+   refresh=(parse_qs(urlparse(self.path).query).get('refresh') or [''])[0]=='1'
+   return self.send_json(today.get(self.server.demo,refresh))
   if path=='/api/history':return self.send_json({'history':history_read()})
   if path=='/api/disk-forecast':return self.send_json({'forecast':disk_forecast(history_read())})
   if path=='/api/advanced-capabilities':return self.send_json({'edition':windows_edition(),'policy_available':has_policy_editor(),'windows':os.name=='nt'})
@@ -583,12 +587,22 @@ def collector_command():
  if FROZEN:return [sys.executable,'--run-collector','--output',str(SCAN)]
  return [sys.executable,str(BASE/'collector.py'),'--output',str(SCAN)]
 
+def open_app_window(url):
+ """Open PC Medic in its own window (Edge app mode, no tabs or address bar); fall back to the default browser."""
+ for root in (os.environ.get('ProgramFiles(x86)'),os.environ.get('ProgramFiles'),os.environ.get('LOCALAPPDATA')):
+  edge=Path(root or '')/'Microsoft'/'Edge'/'Application'/'msedge.exe'
+  if root and edge.exists():
+   try:return subprocess.Popen([str(edge),f'--app={url}','--window-size=1280,900'],close_fds=True)
+   except OSError:break
+ import webbrowser;webbrowser.open(url)
+
 def main():
  if len(sys.argv)>1 and sys.argv[1]=='--run-collector':
   import collector
   sys.argv=[sys.argv[0]]+sys.argv[2:]
   return collector.main()
  p=argparse.ArgumentParser();p.add_argument('--demo',action='store_true');p.add_argument('--port',type=int,default=8765)
+ p.add_argument('--no-window',action='store_true',help="Don't open the PC Medic window (open the address in a browser yourself)")
  p.add_argument('--ignore-env-keys',action='store_true',help='Ignore ANTHROPIC_API_KEY/OPENAI_API_KEY, to test Settings and the trial as a new user')
  a=p.parse_args()
  if a.ignore_env_keys:settings.IGNORE_ENVIRONMENT=True;print('Ignoring API keys from the environment (testing Settings and the trial).',flush=True)
@@ -598,6 +612,7 @@ def main():
  if port!=a.port:print(f'Port {a.port} is in use (perhaps PC Medic in another Windows account), so this copy uses {port}.',flush=True)
  print(f'PC Medic AI {VERSION}: http://127.0.0.1:{port} ({"SIMULATED DEMO" if a.demo else "LOCAL SCAN"})',flush=True)
  print('Diagnostics are read-only. Storage Explorer can move explicitly selected personal files to Recycle Bin. Ctrl+C to stop.',flush=True)
+ if not a.no_window:threading.Timer(0.3,open_app_window,(f'http://127.0.0.1:{port}',)).start()
  try:server.serve_forever()
  except KeyboardInterrupt:pass
  finally:server.server_close()

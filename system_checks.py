@@ -159,6 +159,45 @@ def describe(name, d):
         lines.append('Physical ports (USB, HDMI) cannot be counted from Windows; check the manufacturer specifications for your model.')
     return TITLES[name]+':\n'+'\n'.join(lines)
 
+def describe_technical(name, d):
+    """Compact raw values for Technician mode: the same evidence as describe(), without the plain-English framing."""
+    if not d.get('available'):return f'{TITLES[name]}: unavailable ({d.get("reason","")})'
+    if name=='battery':
+        if not d.get('Present'):return 'Battery: none (desktop or AC-only)'
+        mwh=lambda v:f'{v:,}' if isinstance(v,(int,float)) else '?'
+        return (f'Battery {d.get("Model") or "?"} · {mwh(d.get("FullChargeCapacity_mWh"))} / {mwh(d.get("DesignCapacity_mWh"))} mWh'
+                f' ({d.get("HealthPercent")}%) · {d.get("CycleCount") or "?"} cycles · {"AC" if d.get("OnAC") else "battery"} {d.get("ChargePercent")}%')
+    if name=='disk_health':
+        parts=[]
+        for x in as_list(d.get('Disks')):
+            extra=' · '.join(s for s in (f'{x["TemperatureC"]}°C' if x.get('TemperatureC') else '', f'wear {x["WearPercent"]}%' if x.get('WearPercent') is not None else '',
+                                         f'{x["PowerOnHours"]:,} h' if x.get('PowerOnHours') else '') if s)
+            errors=(x.get('ReadErrorsUncorrected') or 0)+(x.get('WriteErrorsUncorrected') or 0)
+            parts.append(f'{x.get("Name")} · {x.get("MediaType")} {x.get("BusType")} {x.get("SizeGB")} GB · {x.get("Health")}/{x.get("Status")}'
+                         + (f' · {extra}' if extra else ' · SMART detail needs admin') + f' · uncorrected errors {errors}')
+        parts+=[f'{v.get("Drive")} {v.get("FreeGB")} / {v.get("SizeGB")} GB free' for v in as_list(d.get('Volumes'))]
+        return 'Storage: '+' | '.join(parts)
+    if name=='crashes':
+        bsod=as_list(d.get('BlueScreens'));codes=sorted({b.get('Code') for b in bsod if b.get('Code')})
+        return (f'Crashes ({d.get("WindowDays",30)} d): BSOD {len(bsod)}{" " + ",".join(codes) if codes else ""} · Kernel-Power 41 ×{len(as_list(d.get("UnexpectedRestarts")))}'
+                f' · EventLog 6008 ×{d.get("DirtyShutdowns",0)} · minidumps {d.get("MinidumpCount",0)}' + (f' (latest {str(d.get("LatestMinidump"))[:10]})' if d.get('LatestMinidump') else ''))
+    if name=='updates':
+        from collections import Counter
+        codes=Counter(f.get('Error') or '?' for f in as_list(d.get('Failures')))
+        return (f'Windows Update ({d.get("WindowDays",30)} d): {d.get("SuccessCount",0)} ok · {d.get("FailureCount",0)} failed'
+                + (': ' + ', '.join(f'{c} ×{n}' for c,n in codes.most_common()) if codes else '') + (f' · last ok {str(d.get("LastSuccess"))[:10]}' if d.get('LastSuccess') else ''))
+    if name=='startup_apps':
+        apps=as_list(d.get('Apps'))
+        return f'Startup: {len(apps)} entries · ' + ', '.join(re.sub(r'_[0-9A-F]{32}$','',a.get('Name','')) for a in apps)
+    if name=='pending_reboot':
+        return (f'Reboot pending: CBS {bool(d.get("ComponentServicing"))} · WU {bool(d.get("WindowsUpdate"))} · PendingFileRename {bool(d.get("PendingFileRename"))}'
+                f' · last boot {str(d.get("LastBoot"))[:10]} (up {d.get("UptimeDays")} d)')
+    if name=='listening_ports':
+        tcp=list({(t.get('Port'),t.get('LocalOnly')):t for t in as_list(d.get('Tcp'))}.values())
+        external=sorted({t.get('Port') for t in tcp if not t.get('LocalOnly')})
+        return f'TCP listening {len(tcp)} · external {len(external)}: ' + ', '.join(str(p) for p in external[:20]) + f' · UDP endpoints {d.get("UdpCount",0)}'
+    return TITLES[name]
+
 def for_cloud(name, d):
     """Data Claude may see: no serials, user names, paths, process names, IPs or MACs."""
     if not d.get('available'):return {'available':False,'reason':d.get('reason')}

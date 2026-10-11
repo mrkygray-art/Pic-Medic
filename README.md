@@ -6,10 +6,12 @@ Runs on Windows 10 and 11 laptops and desktops. Windows Server is out of scope.
 
 ## What it does
 
+- **Two modes.** *Home* uses plain English, fewer screens and step-by-step help. *Technician* shows raw values, error codes, event IDs and every tool. PC Medic asks on first launch; switch any time at the top of the window.
+- **Today screen.** When PC Medic opens, it runs a quick read-only check and gives a one-line verdict plus five tiles: speed, storage, battery (or power on desktops), updates and stability. Click a tile to ask about it.
 - **Answers questions from real data.** It identifies your model, RAM, graphics, storage, battery, network, updates and crashes, so "Can I add more RAM?" is answered with your actual memory slots, not a generic article.
-- **Guided troubleshooting.** For "My computer is slow", PC Medic asks when it happens and measures the processor, memory, disk, busiest apps and startup apps. It then explains the evidence, suggests one fix with step-by-step help, measures again, and asks whether it feels better. Each case is saved.
+- **Guided troubleshooting.** For "My computer is slow", PC Medic asks when it happens and measures the processor, memory, disk, busiest apps and startup apps. It then explains the evidence, suggests one fix with step-by-step help, measures again, and asks whether it feels better. Each case is saved under **Fixes**.
 - **Health Check and Performance Watch.** Rule-based scans of storage, drivers, Windows events and performance over time.
-- **AI when needed.** In Smart mode (the default), questions the built-in engine can't answer go to Claude, which runs read-only checks and searches the web with cited sources, or to ChatGPT. You approve before anything is shared.
+- **AI when needed.** In Smart mode (the default), questions the built-in engine can't answer go to Claude, which runs read-only checks and searches the web with cited sources, or to ChatGPT. You approve before anything is shared. Every answer is labeled with who answered it ("Answered by PC Medic · on this PC", "Answered by Claude", ...).
 - **Parts research.** Chargers, batteries, RAM and SSDs, researched against your exact model and labeled "possible match" or "unverified", never "guaranteed".
 - **Technician report.** A printable summary of the computer, findings, checks, troubleshooting history and the conversation, with space for notes.
 - **Tools.** Storage Explorer finds large files and safely moves them to the Recycle Bin. You can also open Windows tools after confirming, and view Devices & Drivers.
@@ -23,9 +25,9 @@ Runs on Windows 10 and 11 laptops and desktops. Windows Server is out of scope.
    python -u .\dashboard.py
    ```
 
-3. Open the address it prints (normally `http://127.0.0.1:8765`).
+PC Medic opens in its own window (Microsoft Edge app mode, without tabs or an address bar). Without Edge it opens in your default browser.
 
-`--demo` uses simulated scan data, and `--port 8766` runs a second copy alongside.
+`--demo` uses simulated scan data, `--port 8766` runs a second copy alongside, and `--no-window` starts only the server (open the printed address yourself).
 
 ## AI keys
 

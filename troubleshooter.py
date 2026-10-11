@@ -147,7 +147,8 @@ def findings(m, context):
         detail = f" The most memory goes to {_names(top)} ({', '.join(str(p['ram_gb']) + ' GB' for p in top)})." if top else ''
         total = f" of {m['memory_total_gb']} GB" if m.get('memory_total_gb') else ''
         out.append({'id': 'memory', 'weight': 3, 'text': f"Memory is {m['memory']:.0f}% used{total}, leaving little room; Windows may start moving data to the much slower disk.{detail}",
-                    'action': 'browser_memory' if top and top[0]['name'].lower() in BROWSERS else 'close_app', 'target': top[0]['name'] if top else None})
+                    'action': 'browser_memory' if top and top[0]['name'].lower() in BROWSERS else 'close_app', 'target': top[0]['name'] if top else None,
+                    'tech': f"RAM {m['memory']:.0f}%{total}" + (' · top: ' + ', '.join(f"{p['name']} {p['ram_gb']} GB" for p in top) if top else '')})
     # Browser memory (browsing context)
     browsers = [p for p in procs if p['name'].lower() in BROWSERS]
     if browsers:
@@ -156,14 +157,15 @@ def findings(m, context):
         if b['ram_gb'] >= 2.5 or share >= 25 or (context == 'browsing' and b['ram_gb'] >= 1.5):
             out.append({'id': 'browser', 'weight': 3 if context == 'browsing' else 1,
                         'text': f"{BROWSERS[b['name'].lower()]} is using {b['ram_gb']} GB of memory across {b['count']} processes (tabs and extensions each run separately).",
-                        'action': 'browser_memory', 'target': b['name']})
+                        'action': 'browser_memory', 'target': b['name'], 'tech': f"{b['name']} ×{b['count']} · {b['ram_gb']} GB working set ({share:.0f}% of RAM)"})
     # Processor
     if (m.get('cpu') or 0) >= 60:
         top = _top(procs, 'cpu', 3)
         lead = top[0] if top else None
         background = lead and lead['name'].lower() in BACKGROUND_TASKS
         out.append({'id': 'cpu', 'weight': 3, 'text': f"The processor is {m['cpu']:.0f}% busy" + (f"; {_names(top)} use the most ({', '.join(str(p['cpu']) + '%' for p in top)})." if top else '.'),
-                    'action': 'background_task' if background else 'close_app', 'target': lead['name'] if lead else None})
+                    'action': 'background_task' if background else 'close_app', 'target': lead['name'] if lead else None,
+                    'tech': f"CPU {m['cpu']:.0f}%" + (' · top: ' + ', '.join(f"{p['name']} {p['cpu']}%" for p in top) if top else '')})
     # Disk activity
     if (m.get('disk_busy') or 0) >= 50:
         top = _top(procs, 'io', 3)
@@ -171,39 +173,43 @@ def findings(m, context):
         lead = top[0] if top else None
         out.append({'id': 'disk', 'weight': 3 if context == 'startup' else 2,
                     'text': f"The disk is busy {m['disk_busy']:.0f}% of the time" + (f"; {_names(top)} account for {share}% of the disk activity." if top else '.'),
-                    'action': 'background_task' if lead and lead['name'].lower() in BACKGROUND_TASKS else 'close_app', 'target': lead['name'] if lead else None})
+                    'action': 'background_task' if lead and lead['name'].lower() in BACKGROUND_TASKS else 'close_app', 'target': lead['name'] if lead else None,
+                    'tech': f"Disk busy {m['disk_busy']:.0f}%" + (f" · top I/O: {', '.join(p['name'] for p in top)} ({share}% of process I/O)" if top else '')})
     # Startup apps
     on = [a for a in (m.get('startup') or []) if a['on']]
     optional = [a for a in on if USUALLY_OPTIONAL.search(a['name']) and not KEEP_AT_STARTUP.search(a['name'])]
     if on and (len(on) >= 6 or (context == 'startup' and optional) or len(optional) >= 2):
         out.append({'id': 'startup', 'weight': 4 if context == 'startup' else 1,
                     'text': f"{len(on)} apps start automatically when you sign in" + (f"; {len(optional)} of them usually are not needed right away ({', '.join(a['name'] for a in optional[:4])})." if optional else '.'),
-                    'action': 'disable_startup', 'target': (optional or on)[0]['name']})
+                    'action': 'disable_startup', 'target': (optional or on)[0]['name'],
+                        'tech': f"Startup enabled {len(on)} · optional {len(optional)}" + (': ' + ', '.join(a['name'] for a in optional[:6]) if optional else '')})
     # Restart
     reboot = m.get('reboot') or {}
     days = reboot.get('UptimeDays') or 0
     pending = reboot.get('ComponentServicing') or reboot.get('WindowsUpdate')
     if days >= 5 or pending:
         out.append({'id': 'restart', 'weight': 2, 'text': ('A Windows update is waiting for a restart. ' if pending else '') + f"The computer has been running for {days:.0f} days since the last restart.",
-                    'action': 'restart', 'target': None})
+                    'action': 'restart', 'target': None,
+                    'tech': f"Uptime {days:.1f} d · CBS reboot {bool(reboot.get('ComponentServicing'))} · WU reboot {bool(reboot.get('WindowsUpdate'))}"})
     # Free space and drive type
     for v in system_checks.as_list((m.get('disk') or {}).get('Volumes')):
         if v.get('Drive') == 'C:' and v.get('SizeGB'):
             free, size = v.get('FreeGB') or 0, v['SizeGB']
             if free < 15 or free / size < 0.1:
                 out.append({'id': 'space', 'weight': 2, 'text': f"Drive C: has only {free:.0f} GB free of {size:.0f} GB; Windows slows down when the system drive is nearly full.",
-                            'action': 'free_space', 'target': None})
+                            'action': 'free_space', 'target': None, 'tech': f"C: {free:.1f} / {size:.1f} GB free ({100 * free / size:.0f}%)"})
     hdd = [d for d in system_checks.as_list((m.get('disk') or {}).get('Disks')) if str(d.get('MediaType')).upper() == 'HDD']
     if hdd:
         out.append({'id': 'hdd', 'weight': 2 if context in ('startup', 'always') else 1,
-                    'text': f"{hdd[0].get('Name')} is a spinning hard drive. Hard drives are much slower than SSDs, especially at startup.", 'action': 'ssd_upgrade', 'target': None})
+                    'text': f"{hdd[0].get('Name')} is a spinning hard drive. Hard drives are much slower than SSDs, especially at startup.", 'action': 'ssd_upgrade', 'target': None,
+                    'tech': f"{hdd[0].get('Name')} · MediaType HDD · {hdd[0].get('BusType') or 'bus unknown'}"})
     # Power (gaming / all the time)
     power = m.get('power') or {}
     plan = str(power.get('Plan') or '')
     if power.get('OnBattery') or re.search(r'saver|economy', plan, re.I):
         out.append({'id': 'power', 'weight': 4 if context == 'gaming' else 2,
                     'text': ('The laptop is running on battery, which limits speed to save power. ' if power.get('OnBattery') else '') + (f"The power plan is \"{plan}\"." if plan else ''),
-                    'action': 'power_mode', 'target': None})
+                    'action': 'power_mode', 'target': None, 'tech': f"OnBattery {bool(power.get('OnBattery'))} · plan {plan or 'unknown'}"})
     return sorted(out, key=lambda f: f['weight'], reverse=True)
 
 
@@ -314,7 +320,7 @@ def get(case_id):
 
 def public(case):
     """The case for the page: evidence and guidance, without bulky raw measurements."""
-    keep = ('id', 'problem', 'context', 'status', 'question', 'explanation', 'measured', 'recommendation', 'validation', 'feeling', 'outcome', 'next', 'created', 'updated', 'tried')
+    keep = ('id', 'problem', 'context', 'status', 'question', 'explanation', 'explanation_tech', 'measured', 'recommendation', 'validation', 'feeling', 'outcome', 'next', 'created', 'updated', 'tried')
     return {k: case.get(k) for k in keep}
 
 
@@ -342,7 +348,8 @@ def investigate(case_id, context, demo=False):
     found = findings(m, context)
     summary = f"Measured for {m['samples']} seconds: processor {m['cpu'] or 0:.0f}% busy, memory {m['memory'] or 0:.0f}% used, disk {m['disk_busy'] or 0:.0f}% busy."
     case.update(context=context, baseline=m, findings=found, status='recommended', question=None,
-                explanation=[f['text'] for f in found[:3]] or ['Nothing stands out right now.'], measured=summary,
+                explanation=[f['text'] for f in found[:3]] or ['Nothing stands out right now.'],
+                explanation_tech=[f.get('tech') or f['text'] for f in found[:3]] or ['No threshold exceeded'], measured=summary,
                 updated=datetime.now(timezone.utc).isoformat(timespec='seconds'))
     case['recommendation'] = _recommend(case)
     return _store(case)

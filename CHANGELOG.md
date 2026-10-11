@@ -1,5 +1,28 @@
 # PC Medic AI changelog
 
+## 1.18.0 (2026-10-10)
+
+Redesign, phase 1: a Windows 11 look and two audiences, home users and technicians.
+
+- **Home and Technician modes:**
+  - On first launch PC Medic asks which mode to use. The header switch changes it at any time, and the choice is remembered.
+  - Home shows Today, Fixes, Tools and Settings. Technician shows every screen.
+  - The same evidence is shown in two voices. `/api/check` returns a `technical` line next to the plain summary (`system_checks.describe_technical`), and troubleshooting findings carry `tech` text (`explanation_tech`).
+- **Today screen** (`today.py`, `GET /api/today`, cached 5 minutes, `?refresh=1`):
+  - A quick parallel check when PC Medic opens (about 3 seconds): battery, disk health, crashes, updates, pending restart and a 3-second performance sample.
+  - It shows a verdict and five tiles (Speed, Storage, Battery or Power, Updates, Stability). Each tile is good, worth knowing, needs attention or problem.
+  - Clicking a tile asks PC Medic about it. A full drive opens Storage Explorer.
+- **Conversation:**
+  - Your question appears as a chat bubble above the answer.
+  - Each answer is labeled with its source, for example "Answered by PC Medic · on this PC", "Claude · read-only checks on this PC", "ChatGPT (OpenAI)" or "Claude · web research". Archived turns keep the label.
+- **Fixes:** troubleshooting history in plain words, with Continue for open cases.
+- **Tools for home users:** grouped plain-language cards (Check my computer, Speed it up and free space, Stay safe and up to date, Get help). Windows tools still use the allowlist and confirmation. Technician mode keeps the full Windows tools list and Advanced tools.
+- **App window:** `dashboard.py` opens PC Medic in a Microsoft Edge app window, falling back to the default browser. `--no-window` skips this.
+- **Look:**
+  - Windows 11 (Fluent) styling with Segoe UI Variable, a light navigation pane, white cards and the `#005FB8` accent.
+  - Dark mode follows Windows and is remembered. The page has a window icon.
+- **Fix:** the technical battery line no longer fails when Windows doesn't report a capacity.
+
 ## 1.17.0 (2026-10-10)
 
 First release maintained with Claude Code, after the ChatGPT-built 1.16.14 prototype.

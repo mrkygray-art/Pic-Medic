@@ -3,7 +3,7 @@
 A local Windows diagnostic assistant for **laptops and desktops** running Windows 10/11; Windows Server is out of scope. `dashboard.py` is a stdlib HTTP server on 127.0.0.1:8765 that serves the single-page UI `dashboard.html`. Built by Ky with ChatGPT through 1.16.14; Claude Code took over at 1.16.15; see CHANGELOG.md. The version lives in `version.py`.
 
 ## Run and test
-- Run: `python -u .\dashboard.py` (add `--demo` for simulated data, `--port 8766` for a side-by-side test copy).
+- Run: `python -u .\dashboard.py` (add `--demo` for simulated data, `--port 8766` for a side-by-side test copy, `--no-window` to skip the Edge app window).
 - Install: `pip install -r requirements.txt` (only `anthropic`; everything else is stdlib).
 - Tests: `python -m unittest discover -p "test_*.py"`. pytest is not installed.
 - JS syntax check: extract the `<script>` block from dashboard.html and run `node --check` on it.
@@ -27,7 +27,10 @@ A local Windows diagnostic assistant for **laptops and desktops** running Window
 - Guided troubleshooting (`troubleshooter.py`): PC Medic measures and explains; the user makes every change via `action_plan()` steps and the Windows page it opens. New problem types add findings rules, actions and `compare()` handling. Cases live in `cases.json` (local only; names never go to AI).
 - AI keys come from `settings.resolve()`: saved (Credential Manager), then environment, then trial (10 uses). Every AI call goes through `settings.key_for_use()` and `settings.record_use()`. Never send key values to the page.
 - Claude questions are background jobs (`assistant.JOBS`); the page polls `/api/assistant/job`. Keep tools read-only and fast (60 s timeout).
-- Keep the existing layout. Output goes in the central assessment box (`#symptom`), with status in `#assistant-status`.
+- Output goes in the answer card (`#symptom`), with status in `#assistant-status`. Call `setQuestion()` and `setSource()` (the "Answered by …" label) instead of assigning `currentQuestion`; `archiveTurn()` moves the turn into the history.
+- Two modes (`uiMode`: `home` | `tech`, `body.tech`, localStorage `pcmedic-ui-mode`). Hide elements per mode with `data-show="home|tech"`. Anything new that explains evidence needs plain text for Home and raw values for Technician (`describe()` / `describe_technical()`, finding `text` / `tech`, tile `plain` / `tech`).
+- Styling uses the Fluent tokens in `<style id="fluent">` (`--accent`, `--surface`, `--good` …), redefined under `body.dark`. Use the tokens; don't add hard-coded colors.
+- The Today screen (`today.py`) only runs fast read-only checks (a few seconds total). Anything slower belongs in the Health Check.
 
 ## Style
 Dense, compact code with one-space indent in dashboard.py and hardware_advisor.py, four spaces elsewhere. Match the file you're in.
