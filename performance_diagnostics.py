@@ -22,10 +22,50 @@ def parse_metrics(raw):
             'disk_queue_length':num('disk_queue_length'),
             'note':'Read-only system counters. Disk activity is an instantaneous sample; counter availability varies by Windows installation.'}
 
+COUNTERS = {'cpu_percent': r'\Processor(_Total)\% Processor Time',
+            'disk_idle_percent': r'\PhysicalDisk(_Total)\% Idle Time',
+            'disk_queue_length': r'\PhysicalDisk(_Total)\Current Disk Queue Length'}
+
+def sample_counters(interval=1.0):
+    """Read CPU and disk counters in-process with PDH. Starting PowerShell for every sample added its own CPU load
+    to the reading. English counter names work on every Windows language."""
+    import ctypes, time
+    from ctypes import wintypes
+    pdh, k32 = ctypes.WinDLL('pdh'), ctypes.WinDLL('kernel32')
+    class Value(ctypes.Structure):
+        _fields_ = [('CStatus', wintypes.DWORD), ('doubleValue', ctypes.c_double)]
+    class MemoryStatus(ctypes.Structure):
+        _fields_ = [('dwLength', wintypes.DWORD), ('dwMemoryLoad', wintypes.DWORD), ('ullTotalPhys', ctypes.c_ulonglong),
+                    ('ullAvailPhys', ctypes.c_ulonglong), ('ullTotalPageFile', ctypes.c_ulonglong), ('ullAvailPageFile', ctypes.c_ulonglong),
+                    ('ullTotalVirtual', ctypes.c_ulonglong), ('ullAvailVirtual', ctypes.c_ulonglong), ('ullAvailExtendedVirtual', ctypes.c_ulonglong)]
+    query = ctypes.c_void_p()
+    if pdh.PdhOpenQueryW(None, None, ctypes.byref(query)):raise OSError('PDH unavailable')
+    try:
+        handles = {}
+        for name, path in COUNTERS.items():
+            handle = ctypes.c_void_p()
+            if pdh.PdhAddEnglishCounterW(query, path, None, ctypes.byref(handle)) == 0:handles[name] = handle
+        if 'cpu_percent' not in handles:raise OSError('Processor counter unavailable')
+        pdh.PdhCollectQueryData(query)
+        time.sleep(interval)  # rate counters need two readings
+        if pdh.PdhCollectQueryData(query):raise OSError('PDH collection failed')
+        raw = {}
+        for name, handle in handles.items():
+            value = Value()
+            if pdh.PdhGetFormattedCounterValue(handle, 0x200, None, ctypes.byref(value)) == 0:raw[name] = value.doubleValue  # PDH_FMT_DOUBLE
+    finally:
+        pdh.PdhCloseQuery(query)
+    memory = MemoryStatus(dwLength=ctypes.sizeof(MemoryStatus))
+    if k32.GlobalMemoryStatusEx(ctypes.byref(memory)):
+        raw['total_mb'], raw['available_mb'] = memory.ullTotalPhys / 1048576, memory.ullAvailPhys / 1048576
+    return raw
+
 def collect_performance(demo=False):
     if demo:
         return parse_metrics({'cpu_percent':34,'total_mb':16384,'available_mb':5600,'disk_busy_percent':12,'disk_queue_length':0.2})
     if os.name!='nt':raise RuntimeError('Performance sampling requires Windows')
+    try:return parse_metrics(sample_counters())
+    except OSError:pass  # fall back to PowerShell below
     # No user-controlled shell text. Fixed CIM queries and selected numeric fields only.
     script=r"""$ErrorActionPreference='Stop';
 $c=Get-CimInstance Win32_PerfFormattedData_PerfOS_Processor -Filter "Name='_Total'";

@@ -49,6 +49,8 @@ def excluded(path):
  return any(part.lower() in BLOCKED_NAMES for part in Path(path).parts)
 
 REPARSE_POINT=0x400
+# FILE_ATTRIBUTE_OFFLINE | RECALL_ON_OPEN | RECALL_ON_DATA_ACCESS: cloud placeholders (OneDrive online-only)
+CLOUD_ONLY=0x1000|0x40000|0x400000
 
 def is_link(path):
  """Symlink or junction. Path.stat() follows junctions, so read the attribute with lstat()."""
@@ -72,7 +74,7 @@ def inventory(minimum_mb=100,kind='all',scope='profile',owner='default'):
  if kind not in ('all',*CATEGORIES):raise ValueError('Unsupported file category')
  if scope not in ('personal','profile','drives'):raise ValueError('Unsupported scan scope')
  if not isinstance(minimum_mb,(int,float)) or not 1<=minimum_mb<=102400:raise ValueError('Minimum size must be between 1 and 102400 MB')
- start=time.monotonic();count=0;matched=[];inaccessible=0;timed_out=False
+ start=time.monotonic();count=0;matched=[];inaccessible=0;online_only=0;timed_out=False
  selected_roots=search_roots(scope)
  for root in selected_roots:
   if excluded(root):continue
@@ -93,6 +95,8 @@ def inventory(minimum_mb=100,kind='all',scope='profile',owner='default'):
     try:
      if excluded(p) or is_link(p):continue
      stat=p.stat()
+     # OneDrive "online-only" files report their full size but use no space on this PC.
+     if getattr(stat,'st_file_attributes',0)&CLOUD_ONLY:online_only+=1;continue
      if stat.st_size<minimum_mb*1048576:continue
      c=category(p)
      if kind!='all' and c!=kind:continue
@@ -114,7 +118,7 @@ def inventory(minimum_mb=100,kind='all',scope='profile',owner='default'):
   token=secrets.token_urlsafe(24) if can_recycle else None
   if token:tokens[token]=(str(p),time.monotonic()+CACHE_TTL,size,mtime_ns)
   results.append({'id':token,'name':p.name,'folder':str(p.parent),'size_mb':round(size/1048576,1),'category':c,'classification':'Personal file — review before recycling' if can_recycle else 'Review only — deletion disabled outside approved personal folders','recyclable':can_recycle})
- return {'files':results,'scanned_files':count,'matches':len(unique),'limited':timed_out or len(unique)>MAX_RESULTS,'inaccessible':inaccessible,'folders':[str(x) for x in selected_roots],'note':'Scanned selected scope excluding Windows, Program Files, AppData, ProgramData and protected directories. Deletion is available only in approved personal folders. Mailbox attachments inside email databases are not inspected.'}
+ return {'files':results,'scanned_files':count,'matches':len(unique),'limited':timed_out or len(unique)>MAX_RESULTS,'inaccessible':inaccessible,'online_only':online_only,'folders':[str(x) for x in selected_roots],'note':'Scanned selected scope excluding Windows, Program Files, AppData, ProgramData and protected directories. Deletion is available only in approved personal folders. Mailbox attachments inside email databases are not inspected.'}
 
 BITBUCKET=r'Software\Microsoft\Windows\CurrentVersion\Explorer\BitBucket\Volume'
 

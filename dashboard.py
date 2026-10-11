@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
-from hardware_advisor import inventory as hardware_inventory, ram_advice
+from hardware_advisor import inventory as hardware_inventory
 from parts_research import research as parts_research, preview as parts_preview
 from network_advisor import inventory as network_inventory
 from intent_engine import classify as classify_intent
@@ -90,55 +90,6 @@ def watch_only_report(investigation):
  return {'generated_at_utc':datetime.now(timezone.utc).isoformat(), 'checks':{},
          'evidence_scope':'performance_watch_only', 'partial':True}
 
-def offline_watch_answer(question, investigation):
- from ai_engine import sanitize_investigation
- safe=sanitize_investigation(investigation)
- samples=safe.get('performance_samples',[])
- if not samples:raise ValueError('No usable performance samples to analyze')
- names=[('CPU','cpu_percent'),('Memory','memory_used_percent'),('Disk','disk_busy_percent')]
- parts=[]
- for label,key in names:
-  values=[x[key] for x in samples if isinstance(x,dict) and isinstance(x.get(key),(int,float))]
-  if values:parts.append(f'{label}: peak {max(values):.1f}%, average {sum(values)/len(values):.1f}%')
- lines=['Performance Watch only — no full health check has been run.',
-        f'{len(samples)} performance samples reviewed. '+('; '.join(parts) if parts else 'No numeric counters available.')+'.',
-        'This short sample cannot rule out intermittent freezing or establish root cause.',
-        'Next: reproduce the issue while watching; inspect Task Manager and Windows event logs around the freeze. A full Health Check can add storage, driver, and event evidence.',
-        'Offline rule-based interpretation; no cloud request or repairs.']
- return {'answer':'\n\n'.join(lines),'ai_generated':False,'evidence_scope':'performance_watch_only'}
-
-def answer(question, report):
- q=question.lower()
- analysis=analyze(report)
- findings=analysis['findings']
- checks=report.get('checks',{})
- def data(k):return checks.get(k,{}).get('data')
- lines=[]
- if any(w in q for w in ('slow','freeze','lag','performance','memory','ram')):
-  m=data('memory')
-  if isinstance(m,dict) and m.get('TotalGB'):
-   try: lines.append(f"Memory snapshot: {(1-float(m['FreeGB'])/float(m['TotalGB']))*100:.1f}% used. A snapshot cannot prove the cause of slowdowns.")
-   except (ValueError,TypeError,ZeroDivisionError): pass
-  lines.append('Next: repeat the scan during the slowdown, and inspect Task Manager → Processes (sort by Memory and CPU).')
- elif any(w in q for w in ('disk','drive','storage','space','full')):
-  ds=data('disks'); ds=ds if isinstance(ds,list) else ([ds] if isinstance(ds,dict) else [])
-  for d in ds:
-   if d.get('SizeGB') and d.get('FreeGB') is not None:
-    lines.append(f"Drive {d.get('DeviceID','?')}: {d['FreeGB']} GB free of {d['SizeGB']} GB.")
-  lines.append('Next: inspect Settings → System → Storage; avoid deleting files until you have reviewed them.')
- elif any(w in q for w in ('update','event','error','crash','restart')):
-  events=data('recent_system_events'); events=events if isinstance(events,list) else ([events] if isinstance(events,dict) else [])
-  lines.append(f'{len(events)} critical/error events in the sampled report. Event IDs alone do not prove root cause.')
-  lines.append('Next: match event timestamps to the symptoms and inspect Windows Update history for failures.')
- elif any(w in q for w in ('wifi','wi-fi','internet','network','dns')):
-  net=data('network'); net=net if isinstance(net,list) else ([net] if isinstance(net,dict) else [])
-  lines.append(f'{len(net)} network adapter records collected; adapter status alone cannot prove internet connectivity.')
-  lines.append('Next: check gateway connectivity and DNS resolution with Windows network diagnostics.')
- else:
-  lines.append(f"I found {len(findings)} rule-based findings in this scan. Ask about memory, slow performance, storage, Windows events, or networking.")
-  if findings: lines.append('First finding: '+findings[0]['title']+'.')
- lines.append('This is offline, rule-based guidance—not a connected AI model. No repairs were made.')
- return {'answer':'\n\n'.join(lines),'ai_generated':False,'evidence_time':report.get('generated_at_utc')}
 
 # Approved built-in Windows tools only. Opening a tool never applies a repair.
 WINDOWS_TOOLS = {
@@ -395,9 +346,6 @@ class Handler(BaseHTTPRequestHandler):
   if path=='/api/history':return self.send_json({'history':history_read()})
   if path=='/api/disk-forecast':return self.send_json({'forecast':disk_forecast(history_read())})
   if path=='/api/advanced-capabilities':return self.send_json({'edition':windows_edition(),'policy_available':has_policy_editor(),'windows':os.name=='nt'})
-  if path=='/api/share-preview':
-   try:return self.send_json({'evidence':safe_summary(get_report(self.server.demo))})
-   except (FileNotFoundError,ValueError,OSError,json.JSONDecodeError) as exc:return self.send_json({'error':str(exc)},404)
   if path=='/api/report':
    try:
     report=get_report(self.server.demo)
@@ -411,7 +359,7 @@ class Handler(BaseHTTPRequestHandler):
   if self.headers.get('X-PC-Medic-Token')!=TOKEN: return self.send_json({'error':'Invalid request token'},403)
   try:
    n=int(self.headers.get('Content-Length','0'))
-   limit=131072 if path=='/api/technician-report' else 32768 if path in ('/api/performance-summary','/api/ai-ask','/api/ask') else 4096
+   limit=131072 if path=='/api/technician-report' else 32768 if path in ('/api/performance-summary','/api/ai-ask') else 4096
    if n<0 or n>limit: return self.send_json({'error':'Request too large'},413)
    body=json.loads(self.rfile.read(n) or b'{}')
    if not isinstance(body,dict): return self.send_json({'error':'Expected a JSON object'},400)
@@ -493,7 +441,8 @@ class Handler(BaseHTTPRequestHandler):
    question=body.get('question','');provider=body.get('provider','');consent=body.get('consent')
    if consent is not True:return self.send_json({'error':'Explicit data-sharing consent required'},403)
    if not isinstance(question,str) or not 1<=len(question.strip())<=500:return self.send_json({'error':'Question must be 1–500 characters'},400)
-   if provider not in ('claude','openai'):return self.send_json({'error':'Select Claude or OpenAI'},400)
+   # Claude questions go to /api/assistant; this endpoint is the ChatGPT fallback.
+   if provider!='openai':return self.send_json({'error':'Use the Claude assistant for Claude questions'},400)
    try:
     investigation=body.get('investigation')
     try: current_report=get_report(self.server.demo)
@@ -529,16 +478,6 @@ class Handler(BaseHTTPRequestHandler):
    question=body.get('question','')
    if not isinstance(question,str) or len(question)>1500:return self.send_json({'error':'Invalid question'},400)
    return self.send_json(classify_intent(question,body.get('context')))
-  if path=='/api/ask':
-   question=body.get('question','')
-   if not isinstance(question,str) or not 1<=len(question.strip())<=500:return self.send_json({'error':'Question must be 1–500 characters'},400)
-   try:
-    if any(t in question.lower() for t in ('add more memory','upgrade ram','more ram','install ram','replace ram','ram upgrade','memory upgrade','ram slots','memory slots')):
-     return self.send_json({'answer':ram_advice(hardware_inventory()),'ai_generated':False,'evidence_scope':'hardware_inventory'})
-    try: current_report=get_report(self.server.demo)
-    except FileNotFoundError: return self.send_json(offline_watch_answer(question,body.get('investigation')))
-    return self.send_json(answer(question,current_report))
-   except (ValueError,OSError,FileNotFoundError) as exc:return self.send_json({'error':str(exc)},404)
   if path=='/api/performance-sample':
    try:return self.send_json(collect_performance(demo=self.server.demo))
    except (RuntimeError,subprocess.TimeoutExpired) as exc:return self.send_json({'error':str(exc)},500)

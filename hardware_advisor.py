@@ -70,20 +70,6 @@ def inventory():
   return d
  except (OSError,ValueError,subprocess.TimeoutExpired):return {'available':False,'reason':'Hardware inventory unavailable or timed out.'}
 
-def ram_advice(data):
- if not data.get('available'):return 'I cannot inspect this computer yet: '+data.get('reason','Unknown error')+'\nPlease check the manufacturer and exact model in System Information (msinfo32).'
- make=data.get('Manufacturer') or 'Unknown manufacturer'; model=data.get('Model') or 'Unknown model'
- modules=data.get('Modules') or []; modules=modules if isinstance(modules,list) else [modules]
- total=data.get('TotalPhysicalMemory'); gb=round(total/1073741824,1) if isinstance(total,(int,float)) else None
- lines=[f'Computer: {make} {model}.',f'Installed RAM: {gb} GB.' if gb else 'Installed RAM capacity not reported.']
- for m in modules:
-  cap=m.get('Capacity'); size=f'{round(cap/1073741824,1)} GB' if isinstance(cap,(int,float)) else 'unknown size'
-  lines.append(f"RAM module: {size}, {m.get('Speed') or m.get('ConfiguredClockSpeed') or 'unknown'} MT/s, manufacturer {m.get('Manufacturer') or 'unknown'}, reported part number {str(m.get('PartNumber') or 'unavailable').strip()}, slot {m.get('DeviceLocator') or 'unknown'}.")
- arrays=data.get('Arrays') or [];arrays=arrays if isinstance(arrays,list) else [arrays]
- if arrays:
-  slots=arrays[0].get('MemoryDevices');lines.append(f'Windows-reported memory device positions: {slots if slots is not None else "unknown"}. This does NOT confirm free upgradeable sockets.')
- lines.extend(ram_summary(data))
- return '\n\n'.join(lines)
 
 # SMBIOS memory type and form factor codes as reported by Win32_PhysicalMemory.
 MEMORY_TYPES={20:'DDR',21:'DDR2',24:'DDR3',26:'DDR4',34:'DDR5',29:'LPDDR3',30:'LPDDR4',35:'LPDDR5'}
