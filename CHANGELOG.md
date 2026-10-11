@@ -1,6 +1,6 @@
 # PC Medic AI changelog
 
-## Unreleased
+## 1.21.0 (2026-10-11)
 
 - **Technician report, redesigned** (`report.py`):
   - **Service details:** customer name, ticket number, technician and service date. A short form opens when you create the report; the technician name is remembered on this PC and the date defaults to today. The fields stay editable in the report. The customer name and ticket number are never saved or sent.
