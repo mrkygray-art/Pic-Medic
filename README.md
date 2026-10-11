@@ -42,7 +42,9 @@ A key set as `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` on the PC also works. Instal
 
 ## Updates
 
-When `PCMEDIC_UPDATE_REPO` points to the project's GitHub repository, PC Medic checks GitHub Releases on startup and shows a download link when a newer version exists. You can turn this off in Settings.
+PC Medic checks [GitHub Releases](https://github.com/mrkygray-art/Pic-Medic/releases) on startup. When a newer version exists, it shows a direct link to its Windows installer. You can turn this off in Settings, or point it elsewhere with `PCMEDIC_UPDATE_REPO`.
+
+To publish an update, bump `version.py`, then create a GitHub Release tagged `vX.Y.Z` with the installer attached.
 
 ## Development
 

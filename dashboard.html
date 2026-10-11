@@ -334,7 +334,7 @@ function renderSettings(s){
 }
 async function loadSettings(){try{renderSettings(await getJSON('/api/settings'));}catch(e){$('settings-status').textContent='Settings unavailable: '+e.message;}}
 $('settings-updates').onchange=async e=>{try{renderSettings((await request('/api/settings/updates',{enabled:e.target.checked})).settings);}catch(err){$('settings-status').textContent=err.message;}};
-$('settings-check-update').onclick=async()=>{const r=await getJSON('/api/update-check');$('settings-update-status').textContent=!r.enabled?'Update checks are off.':r.error||(r.available?`Version ${r.latest} is available.`:'You have the latest version.');if(r.available)showUpdateBanner(r);};
+$('settings-check-update').onclick=async()=>{const r=await getJSON('/api/update-check');$('settings-update-status').textContent=!r.enabled?'Update checks are off.':r.error||r.note||(r.available?`Version ${r.latest} is available.`:'You have the latest version.');if(r.available)showUpdateBanner(r);};
 function showUpdateBanner(r){
  if(document.getElementById('update-banner')||!r.url)return;
  const bar=html('div','assist-status');bar.id='update-banner';bar.style.margin='0 0 14px';

@@ -24,7 +24,8 @@ PROVIDERS = {'anthropic': 'ANTHROPIC_API_KEY', 'openai': 'OPENAI_API_KEY'}
 KEY_FORMAT = {'anthropic': re.compile(r'sk-ant-[A-Za-z0-9_\-]{20,300}'), 'openai': re.compile(r'sk-[A-Za-z0-9_\-]{20,300}')}
 TRIAL_LIMIT = 10
 CREDENTIAL_PREFIX = 'PCMedic'
-UPDATE_REPO = os.environ.get('PCMEDIC_UPDATE_REPO', '')  # 'owner/repo' of the GitHub project; empty disables update checks
+# GitHub project whose Releases carry the installers. PCMEDIC_UPDATE_REPO overrides it; '' disables update checks.
+UPDATE_REPO = os.environ.get('PCMEDIC_UPDATE_REPO', 'mrkygray-art/Pic-Medic')
 DATA_FILE = None  # set by dashboard.py: <data folder>/settings.json
 IGNORE_ENVIRONMENT = False  # --ignore-env-keys: test the trial and Settings as a new user would
 LOCK = threading.Lock()
@@ -209,6 +210,10 @@ def check_for_update(fetch=None):
             req = urllib.request.Request(url, headers={'Accept': 'application/vnd.github+json', 'User-Agent': f'PCMedic/{VERSION}'})
             with urllib.request.urlopen(req, timeout=10) as r:
                 release = json.loads(r.read(200000))
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:  # GitHub answers 404 until the first release is published
+            return {'enabled': True, 'available': False, 'latest': None, 'note': 'No releases have been published yet.'}
+        return {'enabled': True, 'error': 'Could not check for updates right now.'}
     except (urllib.error.URLError, TimeoutError, ValueError, OSError):
         return {'enabled': True, 'error': 'Could not check for updates right now.'}
     latest = str(release.get('tag_name') or '')

@@ -78,6 +78,14 @@ class TestKeysAndTrial(unittest.TestCase):
         self.assertEqual(r['installer_name'], 'PCMedic-Setup-1.18.0.exe')
         self.assertTrue(r['installer'].startswith('https://github.com/ky/pc-medic/releases/download/'))
 
+    def test_no_releases_yet_is_not_an_error(self):
+        import urllib.error
+        def not_found(_):
+            raise urllib.error.HTTPError('u', 404, 'Not Found', {}, None)
+        with patch('settings.UPDATE_REPO', 'mrkygray-art/Pic-Medic'):
+            r = settings.check_for_update(fetch=not_found)
+        self.assertEqual((r['available'], r['note']), (False, 'No releases have been published yet.'))
+
     def test_no_repo_means_no_update_check(self):
         with patch('settings.UPDATE_REPO', ''):
             self.assertEqual(settings.check_for_update(fetch=lambda _: self.fail('should not fetch')), {'enabled': False})
