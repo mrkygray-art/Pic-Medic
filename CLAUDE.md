@@ -11,11 +11,14 @@ A local Windows diagnostic assistant. `dashboard.py` is a stdlib HTTP server on 
 
 ## Architecture rules
 - **One routing path:** every Ask PC Medic question goes to `POST /api/intent` → `intent_engine.classify(question, context)`. The browser dispatches on `intent` only. Don't add regex shortcuts in dashboard.html.
-- Every POST needs the `X-PC-Medic-Token` header. The token comes from `GET /api/report` (`csrf`). Hardware and network inventory endpoints are GET only.
+- Every request must have Host `127.0.0.1:<port>` or `localhost:<port>` (DNS-rebinding defense in `Handler.foreign_request`). Every POST needs the `X-PC-Medic-Token` header. The token comes from `GET /api/report` (`csrf`). Hardware and network inventory endpoints are GET only.
 - Local collectors are read-only. Windows tools launch only through the `WINDOWS_TOOLS` allowlist with `approved: true`.
 - Separate consents: (a) web search terms, (b) cloud LLM evidence, (c) system changes. Use the in-app `pcConfirm()`, not the browser's `confirm()`.
 - Parts research uses Claude web search through the `anthropic` SDK (`parts_research.py`). Keep `allowed_callers: ["direct"]`, because dynamic filtering drops citations. Labels are `possible` or `unverified`, never `verified`. With no `ANTHROPIC_API_KEY`, the code must say it did not search; never fall back to scraped results. Live runs cost money (about $0.14 each), so tests mock `_ask_claude`.
 - Never send serial numbers, usernames, IPs or the whole scan.json to search or cloud AI. API keys stay in server-side environment variables only.
+- Health Check and Performance Watch claim the server's single diagnostic slot (`/api/activity` lease) and pass `owner:windowId` on every sample. New long-running diagnostics must do the same.
+- `userSymptom` comes only from the Ask box (`#pc-question`). Never read `#symptom` as user input; it holds PC Medic's output.
+- Packaged (.exe) builds: `FROZEN` switches data to `%LOCALAPPDATA%\PC Medic`, and the collector runs as `PCMedic.exe --run-collector`.
 - Keep the existing layout. Output goes in the central assessment box (`#symptom`), with status in `#assistant-status`.
 
 ## Style

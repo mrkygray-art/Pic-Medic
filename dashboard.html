@@ -292,7 +292,7 @@ async function startGuidedDiagnosis(){
   $('provider-dialog').showModal();return;
  }
  if(!typed){
-  $('assistant-status').textContent='Describe the problem in the assessment box first, or use the manual Health Check button below.';
+  $('assistant-status').textContent='Type a question or describe the problem in the Ask PC Medic field first, or use the manual Health Check button below.';
   $('pc-question').focus();return;
  }
  document.getElementById('research-results')?.remove();$('symptom').style.height='';userSymptom=typed.slice(0,350);
@@ -362,8 +362,8 @@ function syncFindingQuestion(force=false){const box=$('question');if(!box)return
 let lastAutoAssessment='';let userSymptom='';
 function updateAssessment(){
  if(!reportReady)return;
- const box=$('symptom');const current=box.value.trim();
- if(current&&current!==lastAutoAssessment)userSymptom=current;
+ // userSymptom comes only from the Ask box; the assessment box holds PC Medic's own output.
+ const box=$('symptom');
  const serious=issues.some(x=>/critical|urgent|high/i.test(x.severity||''));
  const verdict=serious?'Fix soon — review the flagged issues':issues.length?'Watch — no urgent failure confirmed':'Healthy — no actionable issues detected in available checks';
  const summary=issues.length?issues.slice(0,3).map((x,i)=>`${i+1}. ${x.title}. ${x.detail}`).join('\n'):'No concerns flagged by the available checks.';
@@ -395,6 +395,10 @@ function updateCpuOverview(){
 }
 function plot(){if(watchActive||watchReport)return;const svg=$('perf-chart');svg.replaceChildren();const ns='http://www.w3.org/2000/svg';for(let y=0;y<=4;y++){const l=document.createElementNS(ns,'line');for(const [k,v] of Object.entries({x1:0,x2:700,y1:10+y*40,y2:10+y*40,stroke:'#9cacc0','stroke-opacity':'.3'}))l.setAttribute(k,v);svg.append(l)}for(const [key,color] of [['cpu_percent','#3c8bf0'],['memory_used_percent','#28bc96'],['disk_busy_percent','#e9a33a']]){let seg=[];const flush=()=>{if(seg.length>1){const line=document.createElementNS(ns,'polyline');line.setAttribute('points',seg.join(' '));line.setAttribute('fill','none');line.setAttribute('stroke',color);line.setAttribute('stroke-width','3');svg.append(line)}seg=[]};perfSamples.forEach((s,i)=>{const val=s[key];if(!finite(val)){flush();return}seg.push(`${perfSamples.length===1?0:i*700/(perfSamples.length-1)},${170-Math.max(0,Math.min(100,val))*1.6}`)});flush()}}
 async function getJSON(path){const r=await fetch(path,{method:'GET',cache:'no-store'});const contentType=r.headers.get('content-type')||'';if(!contentType.includes('application/json'))throw Error('Hardware service returned a non-JSON response (HTTP '+r.status+'). Check the PC Medic server window.');const p=await r.json();if(!r.ok)throw Error(p.error||'HTTP '+r.status);return p;}
+// Each window claims the server's single diagnostic slot, so two windows cannot run overlapping scans.
+const windowId=(self.crypto?.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2)).slice(0,64);
+async function claimActivity(kind){try{await request('/api/activity',{action:'start',kind,owner:windowId});return null}catch(e){return e.message}}
+function releaseActivity(){request('/api/activity',{action:'end',owner:windowId}).catch(()=>{})}
 async function request(path,body){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-PC-Medic-Token':token},body:JSON.stringify(body)});const p=await r.json();if(!r.ok)throw Error(p.error||`HTTP ${r.status}`);return p}
 async function load(){try{const r=await fetch('/api/report',{cache:'no-store'}),p=await r.json();token=p.csrf||token;if(!r.ok)throw Error(p.error||'No report');renderReport(p)}catch(e){setStatus('No scan loaded');$('metrics').replaceChildren(metric('CPU','—','Run health check'),metric('Memory','—','Run health check'),metric('Storage','—','Run health check'),metric('System','—','Run health check'));$('issue-count').textContent='Ready for first scan';}}
 function updateProgress(stage,pct,desc){$('run-progress').classList.toggle('scan-complete',stage==='Health check complete');$('run-progress').classList.toggle('scan-interrupted',stage==='Health check interrupted');$('run-stage').textContent=stage;$('run-bar').style.width=Math.max(0,Math.min(100,pct))+'%';$('run-progress-text').textContent=desc;setStatus(stage)}
@@ -429,17 +433,19 @@ function finishWatch(){
 async function runWatch(){
  if(watchActive||running){syncDiagnosticAvailability();return;}
  const minutes=Number($('watch-duration').value);if(![1,3,5,10,30].includes(minutes))return;
+ watchActive=true;const blocked=await claimActivity('watch');
+ if(blocked){watchActive=false;syncDiagnosticAvailability();$('watch-status').textContent=blocked;setWatchBanner('blocked','● BLOCKED',blocked);return;}
  watchActive=true;watchStop=false;watchSnapshots=[];watchSamples=[];watchReport=null;watchError='';watchStarted=Date.now();setWatchBanner('running','● WATCH IN PROGRESS',`${minutes} minute session · collecting evidence`);$('watch-summary').textContent='Monitoring in progress…';$('watch-ai').disabled=true;$('watch-start').disabled=true;$('watch-stop').disabled=false;$('watch-duration').disabled=true;$('watch-export').disabled=true;$('watch-events').replaceChildren();drawWatchGraph();
  try{
   let lastCapture=0;
   while(!watchStop&&Date.now()-watchStarted<minutes*60000){
-   const s=await request('/api/performance-sample',{});
+   const s=await request('/api/performance-sample',{owner:windowId});
    watchSamples.push({at:new Date().toISOString(),cpu_percent:s.cpu_percent,memory_used_percent:s.memory_used_percent,disk_busy_percent:s.disk_busy_percent});drawWatchGraph();
    const spikes=watchMetric(s),elapsed=Math.floor((Date.now()-watchStarted)/1000);
    $('watch-status').textContent=`Watching · ${Math.floor(elapsed/60)}m ${elapsed%60}s elapsed / ${minutes}m · ${watchSamples.length} samples · ${watchSnapshots.length} spikes. Keep this tab open.`;setWatchBanner('running','● WATCH IN PROGRESS',`${Math.floor(elapsed/60)}m ${elapsed%60}s / ${minutes}m · ${watchSamples.length} samples`);
    if(spikes.length&&Date.now()-lastCapture>=60000){
     lastCapture=Date.now();let processes=[];
-    try{const p=await request('/api/process-memory',{});processes=arr(p.processes).slice(0,3).map(x=>({name:String(x.name||'Unknown').slice(0,80),working_set_mb:x.working_set_mb}));}catch(e){}
+    try{const p=await request('/api/process-memory',{owner:windowId});processes=arr(p.processes).slice(0,3).map(x=>({name:String(x.name||'Unknown').slice(0,80),working_set_mb:x.working_set_mb}));}catch(e){}
     const snap={at:new Date().toISOString(),spikes,processes};watchSnapshots.push(snap);
     const card=html('div','detail');card.append(html('strong','',`${new Date(snap.at).toLocaleTimeString()} · ${spikes.join(' · ')}`),html('small','',processes.length?'Top memory processes: '+processes.map(x=>`${x.name} ${x.working_set_mb??'?'} MB`).join(', '):'Process snapshot unavailable'));$('watch-events').prepend(card);
     if(watchSnapshots.length>=30){watchStop=true;break;}
@@ -448,7 +454,7 @@ async function runWatch(){
    await sleep(10000);
   }
  }catch(e){watchError=e.message;$('watch-status').textContent='Watch interrupted: '+e.message;}
- finally{watchActive=false;$('watch-stop').disabled=true;finishWatch();syncDiagnosticAvailability();$('watch-status').textContent+=` · Ended. Report available below.`;}
+ finally{watchActive=false;releaseActivity();$('watch-stop').disabled=true;finishWatch();syncDiagnosticAvailability();$('watch-status').textContent+=` · Ended. Report available below.`;}
 }
 $('watch-start').onclick=runWatch;syncDiagnosticAvailability();
 $('watch-stop').onclick=()=>{watchStop=true;$('watch-status').textContent='Stopping and analyzing after current measurement…';};
@@ -474,12 +480,12 @@ async function saveHistory(){
 }
 $('history-refresh').onclick=loadHistory;
 loadHistory();
-async function healthCheck(){if(running||watchActive){syncDiagnosticAvailability();return;}const typed=$('symptom').value.trim();if(typed&&typed!==lastAutoAssessment&&!typed.startsWith('Your reported symptom:')&&!typed.startsWith('Your reported problem:'))document.getElementById('research-results')?.remove();userSymptom=typed.slice(0,350);running=true;syncDiagnosticAvailability();$('run-progress').classList.remove('scan-complete','scan-interrupted');stopRequested=false;processSamples=[];perfSamples=[];$('run-check').disabled=true;$('run-progress').classList.remove('hidden');$('export').disabled=true;try{if(!demo){updateProgress('Scanning Windows',3,'Collecting system, hardware, storage and event information');const p=await request('/api/scan',{});renderReport(p)}else{updateProgress('Demo health check',3,'Using simulated Windows system data');await load()}
- for(let i=0;i<3&&!stopRequested;i++){if(i)await sleep(4000);if(stopRequested)break;updateProgress('Checking running processes',10+i*6,`Process memory sample ${i+1} of 3`);const p=await request('/api/process-memory',{});processSamples.push(p);$('process-output').textContent=processSamples.map((s,n)=>`Sample ${n+1}:\n`+arr(s.processes).map(x=>`${x.name||x.Name||'Process'} (PID ${x.pid||x.PID||'?'}): ${x.working_set_mb??'—'} MB`).join('\n')).join('\n\n')}
- for(let i=0;i<13&&!stopRequested;i++){if(i)await sleep(5000);if(stopRequested)break;updateProgress('Monitoring performance',30+Math.round(65*(i+1)/13),`Sample ${i+1} of 13 · CPU, memory and disk activity`);const p=await request('/api/performance-sample',{});perfSamples.push(p);updatePerformance();updateCpuOverview()}
+async function healthCheck(){if(running||watchActive){syncDiagnosticAvailability();return;}/* A manual Health Check has no symptom; a guided one keeps the question typed in the Ask box. Never read the assessment box: it holds PC Medic's previous answer. */running=true;const blocked=await claimActivity('health');if(blocked){running=false;setStatus(blocked,true);$('assistant-status').textContent=blocked;syncDiagnosticAvailability();return;}if(!guidedPending)userSymptom='';document.getElementById('research-results')?.remove();running=true;syncDiagnosticAvailability();$('run-progress').classList.remove('scan-complete','scan-interrupted');stopRequested=false;processSamples=[];perfSamples=[];$('run-check').disabled=true;$('run-progress').classList.remove('hidden');$('export').disabled=true;try{if(!demo){updateProgress('Scanning Windows',3,'Collecting system, hardware, storage and event information');const p=await request('/api/scan',{owner:windowId});renderReport(p)}else{updateProgress('Demo health check',3,'Using simulated Windows system data');await load()}
+ for(let i=0;i<3&&!stopRequested;i++){if(i)await sleep(4000);if(stopRequested)break;updateProgress('Checking running processes',10+i*6,`Process memory sample ${i+1} of 3`);const p=await request('/api/process-memory',{owner:windowId});processSamples.push(p);$('process-output').textContent=processSamples.map((s,n)=>`Sample ${n+1}:\n`+arr(s.processes).map(x=>`${x.name||x.Name||'Process'} (PID ${x.pid||x.PID||'?'}): ${x.working_set_mb??'—'} MB`).join('\n')).join('\n\n')}
+ for(let i=0;i<13&&!stopRequested;i++){if(i)await sleep(5000);if(stopRequested)break;updateProgress('Monitoring performance',30+Math.round(65*(i+1)/13),`Sample ${i+1} of 13 · CPU, memory and disk activity`);const p=await request('/api/performance-sample',{owner:windowId});perfSamples.push(p);updatePerformance();updateCpuOverview()}
  if(perfSamples.length>=2){updateProgress('Preparing findings',97,'Reviewing the available measurements');await request('/api/performance-summary',{samples:perfSamples})}
  updateProgress(stopRequested?'Health check stopped':'Health check complete',100,`${processSamples.length} process and ${perfSamples.length} performance samples collected. Review findings below.`);$('export').disabled=!(perfSamples.length||processSamples.length);buildIssues();updateCpuOverview();if(!stopRequested){syncFindingQuestion();updateAssessment();await saveHistory();}setStatus(stopRequested?'Partial results available':'Health check complete');
- }catch(e){updateProgress('Health check interrupted',100,e.message+' · Partial results are retained');setStatus('Check interrupted',true);$('export').disabled=!(perfSamples.length||processSamples.length)}finally{running=false;$('stop-check').disabled=true;syncDiagnosticAvailability()}}
+ }catch(e){updateProgress('Health check interrupted',100,e.message+' · Partial results are retained');setStatus('Check interrupted',true);$('export').disabled=!(perfSamples.length||processSamples.length)}finally{running=false;releaseActivity();$('stop-check').disabled=true;syncDiagnosticAvailability()}}
 $('run-check').onclick=healthCheck;$('stop-check').onclick=()=>{stopRequested=true;$('stop-check').disabled=true;updateProgress('Stopping','95','Finishing the current read-only measurement')};
 function performanceEvidence(){const source=watchReport?.samples?.length?watchReport.samples:perfSamples;if(!source.length)return null;const picked=source.length<=20?source:Array.from({length:20},(_,i)=>source[Math.round(i*(source.length-1)/19)]);const evidence={performance_samples:picked.map(s=>{const out={};for(const key of ['cpu_percent','memory_used_percent','memory_available_mb','disk_busy_percent','disk_queue_length'])if(finite(s[key]))out[key]=s[key];return out})};if(watchReport){evidence.watch_summary={sample_count:watchReport.samples.length,duration_seconds:watchReport.duration_seconds,metrics:watchReport.metrics,spike_count:watchReport.spike_snapshots.length};}return evidence;}
 const providerButtons=[...document.querySelectorAll('[data-provider]')];providerButtons.forEach(b=>b.onclick=()=>{provider=b.dataset.provider;providerButtons.forEach(x=>x.classList.toggle('active',x===b));$('share-preview').hidden=true;});

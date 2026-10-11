@@ -19,8 +19,14 @@
 - `hardware_advisor.inventory()` now also reports `ProductName` (for example "LOQ 15IRH8", from `Win32_ComputerSystemProduct.Version`) and `BatteryModels` (the OEM battery part number, for example "L22D4PA0"). The battery DeviceID is excluded because it contains a serial number.
 - The UI clears stale offers when a new topic starts, disables research buttons while research runs, scrolls the results into view, and corrects the version label.
 
+## Follow-up bug fixes
+- **DNS rebinding (security).** Any website could resolve its own name to 127.0.0.1, read the request token from `/api/report` and send commands: open tools, read the registry, recycle files, run paid research. Every request must now use Host `127.0.0.1:<port>` or `localhost:<port>`, and any Origin must match.
+- **The assessment text was treated as the user's symptom.** Missing braces in `healthCheck()`, plus the same pattern in `updateAssessment()`, copied PC Medic's previous answer (for example charger research) into the Health Check as "Your reported symptom". `userSymptom` now comes only from the Ask box, and a manual Health Check starts with none.
+- **The scan would break in a packaged .exe.** It relaunched `sys.executable collector.py`. A frozen build now relaunches itself with `--run-collector`. Scan data and history go to `%LOCALAPPDATA%\PC Medic` when frozen.
+- **Diagnostics could overlap across windows.** A server-side lease (`POST /api/activity`, renewed by each sample, expiring after 90 seconds) now allows one Health Check or Performance Watch at a time across all windows. The other window shows an amber "blocked" message.
+
 ## Tests
-`python -m unittest discover -p "test_*.py"` runs 31 tests: the handoff acceptance table, research labels and citations (Claude mocked, no cost), the no-key behavior and HTTP contracts.
+`python -m unittest discover -p "test_*.py"` runs 42 tests: the handoff acceptance table, research labels and citations (Claude mocked, no cost), the no-key behavior, HTTP contracts, foreign-host rejection, the cross-window lock and collector mode.
 
 ## Known limitations
 - Live research requires an Anthropic API key and is billed per use. Claude picks its own search terms, so the consent dialog shows the prompt and domains, not the queries.

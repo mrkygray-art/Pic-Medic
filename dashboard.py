@@ -5,7 +5,9 @@ import os
 import secrets
 import subprocess
 import sys
+import re
 import threading
+import time
 from collections import Counter
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -23,11 +25,38 @@ from storage_explorer import inventory, recycle
 from device_diagnostics import inventory as device_inventory
 
 BASE = Path(__file__).resolve().parent
-SCAN = BASE / 'scan.json'
-HISTORY = BASE / 'scan_history.json'
+FROZEN = getattr(sys, 'frozen', False)
+# A packaged .exe unpacks to a temporary folder, so saved data lives in the user's AppData instead.
+DATA = Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'PC Medic' if FROZEN else BASE
+DATA.mkdir(parents=True, exist_ok=True)
+SCAN = DATA / 'scan.json'
+HISTORY = DATA / 'scan_history.json'
 HISTORY_LOCK = threading.Lock()
 LOCK = threading.Lock()
 TOKEN = secrets.token_urlsafe(32)
+# One diagnostic at a time across every browser window: the window that starts a Health Check or
+# Performance Watch holds a lease, renewed by each sample; a closed tab's lease expires on its own.
+ACTIVITY = {'kind': None, 'owner': None, 'until': 0.0}
+ACTIVITY_LOCK = threading.Lock()
+ACTIVITY_LABELS = {'health': 'A Health Check', 'watch': 'A Performance Watch'}
+LEASE_SECONDS = 90
+
+def activity_conflict(owner, kind=None, seconds=LEASE_SECONDS):
+ """Return the label of another window's running diagnostic, or None after claiming/renewing it for owner."""
+ with ACTIVITY_LOCK:
+  now=time.monotonic()
+  if ACTIVITY['owner'] and now<ACTIVITY['until'] and ACTIVITY['owner']!=owner:
+   return ACTIVITY_LABELS[ACTIVITY['kind']]
+  if kind:ACTIVITY.update(kind=kind,owner=owner,until=now+seconds)
+  elif ACTIVITY['owner']==owner:ACTIVITY['until']=max(ACTIVITY['until'],now+seconds)
+  return None
+
+def release_activity(owner):
+ with ACTIVITY_LOCK:
+  if ACTIVITY['owner']==owner:ACTIVITY.update(kind=None,owner=None,until=0.0)
+
+def valid_owner(value):
+ return isinstance(value,str) and bool(re.fullmatch(r'[A-Za-z0-9-]{8,64}',value))
 DEMO = {
  'generated_at_utc':'2026-10-09T17:00:00+00:00', 'platform':'Windows',
  'checks':{
@@ -286,7 +315,16 @@ def disk_forecast(records):
  return {'status':'estimate','days_until_full':round(days),'free_pct':round(y[-1],1),'pct_points_per_day':round(slope,2),'message':'Rough linear estimate based on scan history, not a guarantee.'}
 
 class Handler(BaseHTTPRequestHandler):
+ def local_origins(self):
+  port=self.server.server_address[1]
+  return (f'127.0.0.1:{port}',f'localhost:{port}')
+ def foreign_request(self):
+  """Block DNS rebinding: a hostile site resolved to 127.0.0.1 still sends its own Host and Origin."""
+  if self.headers.get('Host','').lower() not in self.local_origins():return True
+  origin=self.headers.get('Origin')
+  return bool(origin) and origin.lower() not in tuple('http://'+x for x in self.local_origins())
  def do_GET(self):
+  if self.foreign_request():return self.send_json({'error':'Requests must come from PC Medic on this computer'},403)
   path=urlparse(self.path).path
   if path=='/': return self.send_file(BASE/'dashboard.html','text/html; charset=utf-8')
   if path=='/api/network-info':
@@ -308,10 +346,8 @@ class Handler(BaseHTTPRequestHandler):
   return self.send_json({'error':'Not found'},404)
  def do_POST(self):
   path=urlparse(self.path).path
+  if self.foreign_request():return self.send_json({'error':'Requests must come from PC Medic on this computer'},403)
   if self.headers.get('X-PC-Medic-Token')!=TOKEN: return self.send_json({'error':'Invalid request token'},403)
-  origin=self.headers.get('Origin')
-  host=self.headers.get('Host','')
-  if origin and origin not in (f'http://{host}',):return self.send_json({'error':'Invalid origin'},403)
   try:
    n=int(self.headers.get('Content-Length','0'))
    if n<0 or n>(32768 if path in ('/api/performance-summary','/api/ai-ask','/api/ask') else 4096): return self.send_json({'error':'Request too large'},413)
@@ -319,6 +355,20 @@ class Handler(BaseHTTPRequestHandler):
    if not isinstance(body,dict): return self.send_json({'error':'Expected a JSON object'},400)
    if not isinstance(body,dict):raise ValueError('Invalid request')
   except (ValueError,json.JSONDecodeError):return self.send_json({'error':'Invalid JSON'},400)
+  if path=='/api/activity':
+   owner=body.get('owner')
+   if not valid_owner(owner):return self.send_json({'error':'Invalid window id'},400)
+   if body.get('action')=='end':
+    release_activity(owner);return self.send_json({'released':True})
+   kind=body.get('kind')
+   if kind not in ACTIVITY_LABELS:return self.send_json({'error':'Unknown activity'},400)
+   busy=activity_conflict(owner,kind)
+   if busy:return self.send_json({'error':busy+' is already running in another PC Medic window. Wait for it to finish.'},409)
+   return self.send_json({'claimed':kind,'lease_seconds':LEASE_SECONDS})
+  if path in ('/api/scan','/api/performance-sample','/api/process-memory'):
+   # The scan itself can take up to 180 seconds, so it extends the lease past that.
+   busy=activity_conflict(body.get('owner'),seconds=240 if path=='/api/scan' else LEASE_SECONDS)
+   if busy:return self.send_json({'error':busy+' is already running in another PC Medic window. Wait for it to finish.'},409)
   if path=='/api/disk-health':
    if self.server.demo or os.name!='nt':return self.send_json({'error':'Disk scan is available on Windows only'},403)
    from collector import powershell, COLLECTORS
@@ -421,7 +471,7 @@ class Handler(BaseHTTPRequestHandler):
    if not LOCK.acquire(blocking=False):return self.send_json({'error':'Scan already running'},409)
    try:
     # Fixed allowlisted script, fixed output path, no shell or user-controlled command.
-    result=subprocess.run([sys.executable,str(BASE/'collector.py'),'--output',str(SCAN)],capture_output=True,text=True,timeout=180,check=False)
+    result=subprocess.run(collector_command(),capture_output=True,text=True,timeout=180,check=False,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
     if result.returncode:return self.send_json({'error':'Collector failed','details':result.stderr[-500:]},500)
     report=get_report(False)
     return self.send_json({'report':report,'analysis':analyze(report),'demo':False,'csrf':TOKEN})
@@ -433,7 +483,16 @@ class Handler(BaseHTTPRequestHandler):
  def send_json(self,obj,status=200):
   content=json.dumps(obj,default=str).encode();self.send_response(status);self.send_header('Content-Type','application/json; charset=utf-8');self.send_header('Content-Length',str(len(content)));self.send_header('Cache-Control','no-store');self.send_header('X-Content-Type-Options','nosniff');self.end_headers();self.wfile.write(content)
 
+def collector_command():
+ """In a packaged .exe sys.executable is PC Medic itself, so it re-enters main() in collector mode."""
+ if FROZEN:return [sys.executable,'--run-collector','--output',str(SCAN)]
+ return [sys.executable,str(BASE/'collector.py'),'--output',str(SCAN)]
+
 def main():
+ if len(sys.argv)>1 and sys.argv[1]=='--run-collector':
+  import collector
+  sys.argv=[sys.argv[0]]+sys.argv[2:]
+  return collector.main()
  p=argparse.ArgumentParser();p.add_argument('--demo',action='store_true');p.add_argument('--port',type=int,default=8765);a=p.parse_args()
  server=ThreadingHTTPServer(('127.0.0.1',a.port),Handler);server.demo=a.demo
  print(f'PC Medic AI 1.16.15: http://127.0.0.1:{a.port} ({"SIMULATED DEMO" if a.demo else "LOCAL SCAN"})',flush=True)
