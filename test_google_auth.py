@@ -89,6 +89,11 @@ class TestTrialNeedsSignIn(unittest.TestCase):
         self.assertEqual((g['configured'], g['signed_in'], g['email']), (True, True, 'ky@example.com'))
         self.assertNotIn('sub', g)
 
+    def test_summary_says_whether_a_trial_is_offered(self):
+        self.assertTrue(settings.summary()['trial']['offered'])
+        with patch.dict('os.environ', {}, clear=True):
+            self.assertFalse(settings.summary()['trial']['offered'])
+
     def test_corrupt_saved_account_counts_as_signed_out(self):
         self.vault.items['google'] = '{not json'
         self.assertIsNone(google_auth.account())

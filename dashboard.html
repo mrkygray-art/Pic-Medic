@@ -431,14 +431,14 @@ async function refreshAIStatus(){
 let googlePoll=null;
 function pollGoogle(){clearTimeout(googlePoll);googlePoll=setTimeout(async()=>{try{const s=await getJSON('/api/settings');renderSettings(s);
  if(s.google.signed_in){await refreshAIStatus();$('settings-status').textContent='Signed in with Google.';}}catch(e){}},2000);}
-function renderGoogle(g){
+function renderGoogle(g,trialOffered){
  const box=$('settings-google');box.replaceChildren(html('strong','','Google account'));
  box.append(html('div','value',g.signed_in?`Signed in as ${g.email||'your Google account'}.`:g.pending?'Finish signing in on the Google page that opened in your browser…':
-  g.configured?"Not signed in. Sign in to use PC Medic's free AI questions. Your own API key works without signing in.":'Google sign-in is not set up in this copy of PC Medic.'));
+  g.configured?(trialOffered?"Not signed in. Sign in to use PC Medic's free AI questions. Your own API key works without signing in.":'Not signed in.'):'Google sign-in is not set up in this copy of PC Medic.'));
  if(g.error&&!g.signed_in&&!g.pending)box.append(html('div','muted small',g.error));
  const actions=html('div','actions below'),msg=html('div','muted small');
  if(g.signed_in){const out=html('button','secondary','Sign out');out.type='button';
-  out.onclick=async()=>{if(!await pcConfirm('Sign out of Google?',"PC Medic's free AI questions stop until you sign in again. Your own API keys keep working.",'Sign out'))return;
+  out.onclick=async()=>{if(!await pcConfirm('Sign out of Google?',trialOffered?"PC Medic's free AI questions stop until you sign in again. Your own API keys keep working.":'Your own API keys keep working.','Sign out'))return;
    const r=await request('/api/google/sign-out',{});renderSettings(r.settings);await refreshAIStatus();$('settings-status').textContent='Signed out of Google.';};actions.append(out);}
  else if(g.configured&&!g.pending){const sign=html('button','primary','Sign in with Google');sign.type='button';
   sign.onclick=async()=>{sign.disabled=true;try{const r=await request('/api/google/sign-in',{});renderSettings(r.settings);}catch(e){msg.textContent=e.message;sign.disabled=false;}};actions.append(sign);}
@@ -447,7 +447,7 @@ function renderGoogle(g){
  if(g.pending)pollGoogle();
 }
 function renderSettings(s){
- renderGoogle(s.google||{});
+ renderGoogle(s.google||{},!!s.trial.offered);
  const grid=$('settings-ai');grid.replaceChildren();
  for(const [provider,info] of Object.entries(PROVIDER_INFO)){
   const p=s.providers[provider],card=html('div','detail');
@@ -467,6 +467,7 @@ function renderSettings(s){
   const link=html('a','small','Get a key');link.href=info.url;link.target='_blank';link.rel='noopener noreferrer';link.style.marginLeft='10px';actions.append(link);
   card.append(input,actions,msg);grid.append(card);
  }
+ $('settings-trial').hidden=!s.trial.offered;
  $('settings-trial').textContent=`PC Medic includes ${s.trial.limit} free AI questions on its own key for anyone signed in with Google (${s.trial.used} used on this PC). After that, add your own key above. Your own key is never limited by PC Medic; your provider bills you directly.`;
  const toggle=$('settings-updates');toggle.checked=!!s.updates.enabled;toggle.disabled=!s.updates.repo;
  $('settings-update-note').textContent=s.updates.repo?`Version ${s.updates.version}. Checks github.com/${s.updates.repo} for new releases; nothing about this PC is sent.`:`Version ${s.updates.version}. Update checks start once PC Medic has a GitHub releases page.`;

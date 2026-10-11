@@ -34,7 +34,7 @@ class TestKeysAndTrial(unittest.TestCase):
                 settings.record_use(source)
             with self.assertRaisesRegex(settings.TrialExhausted, 'Add your own'):
                 settings.key_for_use('anthropic')
-            self.assertEqual(settings.summary()['trial'], {'limit': 10, 'used': 10, 'remaining': 0})
+            self.assertEqual(settings.summary()['trial'], {'limit': 10, 'used': 10, 'remaining': 0, 'offered': True})
             self.assertFalse(settings.available('anthropic'))
 
     def test_ignore_environment_for_testing(self):

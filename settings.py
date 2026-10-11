@@ -187,7 +187,8 @@ def summary():
     """What the Settings screen shows. Never includes key values."""
     uses = trial_uses()
     import google_auth
-    out = {'providers': {}, 'trial': {'limit': TRIAL_LIMIT, 'used': uses, 'remaining': max(0, TRIAL_LIMIT - uses)},
+    out = {'providers': {}, 'trial': {'limit': TRIAL_LIMIT, 'used': uses, 'remaining': max(0, TRIAL_LIMIT - uses),
+                                      'offered': any(trial_key(p) for p in PROVIDERS)},
            'google': google_auth.status(),
            'updates': {'enabled': update_checks_enabled(), 'repo': UPDATE_REPO, 'version': VERSION}}
     for provider in PROVIDERS:
