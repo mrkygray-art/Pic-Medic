@@ -14,7 +14,7 @@ import google_auth
 import settings
 
 CLIENT = 'test-client.apps.googleusercontent.com'
-TRIAL_ENV = {'PCMEDIC_TRIAL_ANTHROPIC_API_KEY': 'trial-key', 'PCMEDIC_GOOGLE_CLIENT_ID': CLIENT}
+TRIAL_ENV = {'PCMEDIC_TRIAL_ANTHROPIC_API_KEY': 'trial-key', 'PCMEDIC_GOOGLE_CLIENT_ID': CLIENT, 'PCMEDIC_GOOGLE_CLIENT_SECRET': 'desktop-secret'}
 
 
 def token(**over):
@@ -160,8 +160,14 @@ class TestLoopbackFlow(unittest.TestCase):
         self.wait('cancelled')
         self.assertEqual(google_auth.status()['error'], 'Google sign-in was cancelled.')
 
+    def test_client_file_from_google_console(self):
+        path = google_auth.Path(tempfile.mkdtemp()) / 'google_client.json'
+        path.write_text(json.dumps({'installed': {'client_id': 'file-id', 'client_secret': 'file-secret'}}), encoding='utf-8')
+        with patch.dict('os.environ', {}, clear=True), patch('google_auth.CLIENT_FILE', path):
+            self.assertEqual(google_auth.client(), ('file-id', 'file-secret'))
+
     def test_not_configured(self):
-        with patch.dict('os.environ', {}, clear=True), patch('google_auth.DEFAULT_CLIENT_ID', ''):
+        with patch.dict('os.environ', {}, clear=True), patch('google_auth.CLIENT_FILE', google_auth.Path(tempfile.mkdtemp()) / 'none.json'):
             self.assertFalse(google_auth.configured())
             with self.assertRaisesRegex(RuntimeError, 'not set up'):
                 google_auth.start(open_browser=lambda u: None)

@@ -8,7 +8,8 @@ HERE = Path(SPECPATH)
 a = Analysis(
     [str(ROOT / 'dashboard.py')],
     pathex=[str(ROOT)],
-    datas=[(str(ROOT / 'dashboard.html'), '.')],
+    # google_client.json (gitignored) holds the Google sign-in Desktop client; without it, sign-in and the trial stay off.
+    datas=[(str(ROOT / 'dashboard.html'), '.')] + ([(str(ROOT / 'google_client.json'), '.')] if (ROOT / 'google_client.json').exists() else []),
     hiddenimports=['collector'],  # imported only in --run-collector mode
     excludes=['tkinter', 'test'],
     noarchive=False,

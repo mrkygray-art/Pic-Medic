@@ -6,8 +6,10 @@ Scopes are only 'openid email'. PC Medic keeps the account id (sub) and email in
 discards Google's tokens right away, so there is nothing to refresh or revoke. Signing in sends nothing about this PC.
 
 The OAuth client is a Google Cloud "Desktop app" client. Google documents that a desktop client's secret can't be
-kept secret, so shipping it in the app is expected (unlike an AI key). PCMEDIC_GOOGLE_CLIENT_ID and
-PCMEDIC_GOOGLE_CLIENT_SECRET override the built-in values.
+kept secret, so the installer may ship it (unlike an AI key). It still stays out of the public repo, because Google
+disables client secrets it finds on public GitHub: it lives in google_client.json next to this file (gitignored;
+the JSON Google's console downloads, {"installed": {"client_id", "client_secret"}}), which packaging/pcmedic.spec
+bundles. PCMEDIC_GOOGLE_CLIENT_ID and PCMEDIC_GOOGLE_CLIENT_SECRET override it.
 """
 import base64
 import hashlib
@@ -20,12 +22,13 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
 
 import settings
 
-# Filled in from the Google Cloud console (APIs & Services > Credentials > OAuth client ID > Desktop app).
-DEFAULT_CLIENT_ID = ''
-DEFAULT_CLIENT_SECRET = ''
+# The "PC Medic Windows" Desktop client in Google Cloud project "PC Medic" (Google Auth Platform > Clients).
+DEFAULT_CLIENT_ID = '494184766180-ef3edv0fkgt5n1ivcfhrjh4348dca0v9.apps.googleusercontent.com'
+CLIENT_FILE = Path(__file__).resolve().parent / 'google_client.json'
 AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 TOKEN_URL = 'https://oauth2.googleapis.com/token'
 ISSUERS = ('https://accounts.google.com', 'accounts.google.com')
@@ -36,13 +39,23 @@ LOCK = threading.Lock()
 FLOW = {'status': 'idle', 'error': None}  # idle | waiting | signed_in | cancelled | failed
 
 
+def _client_file():
+    try:
+        data = json.loads(CLIENT_FILE.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return {}
+    data = data.get('installed', data) if isinstance(data, dict) else {}
+    return data if isinstance(data, dict) else {}
+
+
 def client():
-    return (os.environ.get('PCMEDIC_GOOGLE_CLIENT_ID', '').strip() or DEFAULT_CLIENT_ID,
-            os.environ.get('PCMEDIC_GOOGLE_CLIENT_SECRET', '').strip() or DEFAULT_CLIENT_SECRET)
+    saved = _client_file()
+    return (os.environ.get('PCMEDIC_GOOGLE_CLIENT_ID', '').strip() or str(saved.get('client_id') or '').strip() or DEFAULT_CLIENT_ID,
+            os.environ.get('PCMEDIC_GOOGLE_CLIENT_SECRET', '').strip() or str(saved.get('client_secret') or '').strip())
 
 
 def configured():
-    return bool(client()[0])
+    return all(client())
 
 
 def account():
@@ -115,8 +128,8 @@ PAGE = ('<!doctype html><meta charset="utf-8"><title>PC Medic</title><body style
 
 def start(open_browser=None, fetch=None):
     """Open Google's sign-in page and wait (in the background) for its redirect. Returns the sign-in URL."""
-    client_id, _ = client()
-    if not client_id:
+    client_id, client_secret = client()
+    if not (client_id and client_secret):
         raise RuntimeError('Google sign-in is not set up in this copy of PC Medic.')
     state, verifier = secrets.token_urlsafe(24), secrets.token_urlsafe(48)
     done = threading.Event()

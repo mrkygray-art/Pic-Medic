@@ -11,3 +11,4 @@ dist/
 packaging/version_info.txt
 packaging/pcmedic.ico
 pcmedic.log
+google_client.json
