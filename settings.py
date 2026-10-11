@@ -26,6 +26,7 @@ TRIAL_LIMIT = 10
 CREDENTIAL_PREFIX = 'PCMedic'
 UPDATE_REPO = os.environ.get('PCMEDIC_UPDATE_REPO', '')  # 'owner/repo' of the GitHub project; empty disables update checks
 DATA_FILE = None  # set by dashboard.py: <data folder>/settings.json
+IGNORE_ENVIRONMENT = False  # --ignore-env-keys: test the trial and Settings as a new user would
 LOCK = threading.Lock()
 
 
@@ -108,7 +109,7 @@ def resolve(provider):
     saved = load_key(provider)
     if saved:
         return saved, 'saved'
-    env = os.environ.get(PROVIDERS[provider], '').strip()
+    env = '' if IGNORE_ENVIRONMENT else os.environ.get(PROVIDERS[provider], '').strip()
     if env:
         return env, 'environment'
     trial = trial_key(provider)

@@ -37,6 +37,10 @@ class TestKeysAndTrial(unittest.TestCase):
             self.assertEqual(settings.summary()['trial'], {'limit': 10, 'used': 10, 'remaining': 0})
             self.assertFalse(settings.available('anthropic'))
 
+    def test_ignore_environment_for_testing(self):
+        with patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'env-key', 'PCMEDIC_TRIAL_ANTHROPIC_API_KEY': 'trial-key'}, clear=True),              patch('settings.load_key', return_value=None), patch('settings.IGNORE_ENVIRONMENT', True):
+            self.assertEqual(settings.resolve('anthropic'), ('trial-key', 'trial'))
+
     def test_own_keys_are_never_counted(self):
         settings.record_use('environment')
         settings.record_use('saved')

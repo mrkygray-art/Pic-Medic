@@ -588,8 +588,11 @@ def main():
   import collector
   sys.argv=[sys.argv[0]]+sys.argv[2:]
   return collector.main()
- load_saved_keys()
- p=argparse.ArgumentParser();p.add_argument('--demo',action='store_true');p.add_argument('--port',type=int,default=8765);a=p.parse_args()
+ p=argparse.ArgumentParser();p.add_argument('--demo',action='store_true');p.add_argument('--port',type=int,default=8765)
+ p.add_argument('--ignore-env-keys',action='store_true',help='Ignore ANTHROPIC_API_KEY/OPENAI_API_KEY, to test Settings and the trial as a new user')
+ a=p.parse_args()
+ if a.ignore_env_keys:settings.IGNORE_ENVIRONMENT=True;print('Ignoring API keys from the environment (testing Settings and the trial).',flush=True)
+ else:load_saved_keys()
  server=start_server(a.port);server.demo=a.demo
  port=server.server_address[1]
  if port!=a.port:print(f'Port {a.port} is in use (perhaps PC Medic in another Windows account), so this copy uses {port}.',flush=True)
