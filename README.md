@@ -4,6 +4,11 @@ A Windows technician that lives on your laptop or desktop. Ask it anything about
 
 Runs on Windows 10 and 11 laptops and desktops. Windows Server is out of scope.
 
+<p>
+  <img src="docs/pcmedic-today.webp" alt="PC Medic Today screen in Home mode: Your PC looks healthy, with Speed, Storage, Battery, Updates and Stability tiles" width="420">
+  <img src="docs/pcmedic-technician.webp" alt="PC Medic in Technician mode, dark theme: the same five tiles with raw values, error codes and event IDs" width="420">
+</p>
+
 ## What it does
 
 - **Two modes.** *Home* uses plain English, fewer screens and step-by-step help. *Technician* shows raw values, error codes, event IDs and every tool. PC Medic asks on first launch; switch any time at the top of the window.
