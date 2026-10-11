@@ -338,8 +338,12 @@ $('settings-check-update').onclick=async()=>{const r=await getJSON('/api/update-
 function showUpdateBanner(r){
  if(document.getElementById('update-banner')||!r.url)return;
  const bar=html('div','assist-status');bar.id='update-banner';bar.style.margin='0 0 14px';
- const a=html('a','',`Download version ${r.latest}`);a.href=r.url;a.target='_blank';a.rel='noopener noreferrer';
- bar.append(html('strong','','A new version of PC Medic is available. '),a);document.querySelector('main').prepend(bar);
+ const link=(text,href)=>{const a=html('a','',text);a.href=href;a.target='_blank';a.rel='noopener noreferrer';a.style.marginRight='12px';return a;};
+ // Link straight to the installer when the release has one; the release page is "What's new".
+ bar.append(html('strong','',`PC Medic ${r.latest} is available. `),link(r.installer?`Download the installer (${r.installer_name})`:`Get version ${r.latest}`,r.installer||r.url));
+ if(r.installer)bar.append(link("What's new",r.url));
+ bar.append(html('div','muted small','Run the downloaded installer to update. Your settings and history are kept.'));
+ document.querySelector('main').prepend(bar);
 }
 document.querySelector('[data-tab="settings"]').addEventListener('click',loadSettings);
 getJSON('/api/update-check').then(r=>{if(r.available)showUpdateBanner(r);}).catch(()=>{});

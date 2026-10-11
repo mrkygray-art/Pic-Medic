@@ -214,5 +214,13 @@ def check_for_update(fetch=None):
     latest = str(release.get('tag_name') or '')
     page = str(release.get('html_url') or '')
     newer = _version_tuple(latest) > _version_tuple(VERSION)
+    # Link straight to the Windows installer when the release has one, so people don't hunt through "Assets".
+    installers = [a for a in release.get('assets') or [] if isinstance(a, dict)
+                  and str(a.get('name', '')).lower().endswith(('.exe', '.msi', '.msix'))
+                  and str(a.get('browser_download_url', '')).startswith('https://github.com/')
+                  and not re.search(r'arm64|32-?bit|portable|debug', str(a.get('name', '')), re.I)]
     return {'enabled': True, 'available': newer and page.startswith('https://github.com/'), 'latest': latest.lstrip('v'),
-            'url': page if page.startswith('https://github.com/') else None, 'checked_at': datetime.now(timezone.utc).isoformat(timespec='seconds')}
+            'url': page if page.startswith('https://github.com/') else None,
+            'installer': installers[0]['browser_download_url'] if installers else None,
+            'installer_name': installers[0].get('name') if installers else None,
+            'checked_at': datetime.now(timezone.utc).isoformat(timespec='seconds')}

@@ -68,6 +68,16 @@ class TestKeysAndTrial(unittest.TestCase):
         self.assertFalse(hostile['available'])
         self.assertEqual(off, {'enabled': False})
 
+    def test_update_links_straight_to_the_installer(self):
+        release = {'tag_name': 'v1.18.0', 'html_url': 'https://github.com/ky/pc-medic/releases/tag/v1.18.0', 'assets': [
+            {'name': 'PCMedic-1.18.0-arm64.exe', 'browser_download_url': 'https://github.com/ky/pc-medic/releases/download/v1.18.0/PCMedic-1.18.0-arm64.exe'},
+            {'name': 'PCMedic-Setup-1.18.0.exe', 'browser_download_url': 'https://github.com/ky/pc-medic/releases/download/v1.18.0/PCMedic-Setup-1.18.0.exe'},
+            {'name': 'evil.exe', 'browser_download_url': 'https://evil.example/evil.exe'}]}
+        with patch('settings.UPDATE_REPO', 'ky/pc-medic'), patch('settings.VERSION', '1.17.0'):
+            r = settings.check_for_update(fetch=lambda _: release)
+        self.assertEqual(r['installer_name'], 'PCMedic-Setup-1.18.0.exe')
+        self.assertTrue(r['installer'].startswith('https://github.com/ky/pc-medic/releases/download/'))
+
     def test_no_repo_means_no_update_check(self):
         with patch('settings.UPDATE_REPO', ''):
             self.assertEqual(settings.check_for_update(fetch=lambda _: self.fail('should not fetch')), {'enabled': False})
