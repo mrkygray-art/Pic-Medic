@@ -102,13 +102,15 @@ def exit_when_windows_close(server, check_every=5):
    return server.shutdown()
 
 def find_running(port, tries=10):
- """The port of a PC Medic already running for this Windows account, or None. Other accounts' copies answer 403."""
+ """The port of this same PC Medic version already running for this Windows account, or None. Other accounts' copies
+ answer 403. A different version (say an old copy left running in a terminal) is not reused: this copy starts its own."""
  import urllib.request
  for candidate in range(port,port+tries):
   try:
    req=urllib.request.Request(f'http://127.0.0.1:{candidate}/api/ping',headers={'Host':f'127.0.0.1:{candidate}'})
    with urllib.request.urlopen(req,timeout=1) as r:
-    if json.load(r).get('app')=='pc-medic':return candidate
+    info=json.load(r)
+    if info.get('app')=='pc-medic' and info.get('version')==VERSION:return candidate
   except Exception:continue
  return None
 

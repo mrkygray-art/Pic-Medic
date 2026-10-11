@@ -156,6 +156,28 @@ class TestAppLifecycle(unittest.TestCase):
             server.shutdown(); server.server_close()
             dashboard.WINDOWS_STATE['last_close'] = None
 
+    def test_find_running_skips_other_versions(self):
+        server = ThreadingHTTPServer(('127.0.0.1', 0), dashboard.Handler); server.demo = True
+        port = server.server_address[1]
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            self.assertEqual(dashboard.find_running(port, tries=1), port)
+        finally:
+            server.shutdown(); server.server_close()
+        from http.server import BaseHTTPRequestHandler
+        class OldCopy(BaseHTTPRequestHandler):  # an older PC Medic left running in a terminal
+            def do_GET(self):
+                body = json.dumps({'app': 'pc-medic', 'version': '1.18.1'}).encode()
+                self.send_response(200); self.send_header('Content-Length', str(len(body))); self.end_headers(); self.wfile.write(body)
+            def log_message(self, *a):
+                pass
+        old = ThreadingHTTPServer(('127.0.0.1', 0), OldCopy)
+        threading.Thread(target=old.serve_forever, daemon=True).start()
+        try:
+            self.assertIsNone(dashboard.find_running(old.server_address[1], tries=1))
+        finally:
+            old.shutdown(); old.server_close()
+
     def test_find_running_ignores_closed_ports(self):
         import socket
         with socket.socket() as s:
