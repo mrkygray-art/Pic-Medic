@@ -36,6 +36,7 @@ DATA = Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'PC Medic' if FR
 DATA.mkdir(parents=True, exist_ok=True)
 SCAN = DATA / 'scan.json'
 HISTORY = DATA / 'scan_history.json'
+assistant.SCAN_PATH = str(SCAN)  # Claude's get_latest_health_check tool reads the same scan
 HISTORY_LOCK = threading.Lock()
 LOCK = threading.Lock()
 TOKEN = secrets.token_urlsafe(32)
@@ -166,7 +167,15 @@ WINDOWS_TOOLS = {
  'network-connections': ('Network Connections', 'ncpa.cpl'),
  'memory-diagnostic': ('Windows Memory Diagnostic', 'mdsched.exe'),
  'advanced-startup': ('Advanced Startup / Recovery', 'ms-settings:recovery'),
- 'security-offline-scan': ('Windows Security Scan Options', 'windowsdefender:'),
+ 'security-offline-scan': ('Windows Security scan options', 'windowsdefender://threat'),
+}
+
+SHELL_EXECUTE_ERRORS = {
+ 0: 'Windows is out of memory or resources. Close some programs and try again.',
+ 2: 'Windows could not find this program on this PC.',
+ 3: 'Windows could not find the folder for this program.',
+ 5: 'Administrator approval was declined, or this account is not allowed to open it. Nothing was changed.',
+ 31: 'No program is set up to open this on this PC.',
 }
 
 def shell_open_windows(executable, arguments=None, *, elevate_if_required=False):
@@ -177,13 +186,11 @@ def shell_open_windows(executable, arguments=None, *, elevate_if_required=False)
  shell.ShellExecuteW.argtypes = [wintypes.HWND, wintypes.LPCWSTR, wintypes.LPCWSTR,
                                 wintypes.LPCWSTR, wintypes.LPCWSTR, ctypes.c_int]
  shell.ShellExecuteW.restype = ctypes.c_void_p
- def invoke(verb):
-  return shell.ShellExecuteW(None, verb, str(executable), arguments, None, 1)
- result = invoke('open')
- if result <= 32 and elevate_if_required and result in (5, 740):
-  result = invoke('runas')
+ # 'open' already shows the UAC prompt for tools that need admin rights. Retrying with 'runas' after the
+ # user cancels (error 5) only asked a second time, so a cancel is reported, not retried.
+ result = shell.ShellExecuteW(None, 'open', str(executable), arguments, None, 1) or 0  # c_void_p gives None for 0
  if result <= 32:
-  raise RuntimeError(f'Windows could not open the utility (ShellExecute code {result}).')
+  raise RuntimeError(SHELL_EXECUTE_ERRORS.get(result, f'Windows could not open the utility (error {result}).'))
 
 
 def launch_windows_tool(tool):
@@ -210,7 +217,12 @@ def windows_edition():
  import winreg
  try:
   with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r'SOFTWARE\Microsoft\Windows NT\CurrentVersion') as key:
-   return str(winreg.QueryValueEx(key,'ProductName')[0]) + ' (' + str(winreg.QueryValueEx(key,'EditionID')[0]) + ')'
+   name=str(winreg.QueryValueEx(key,'ProductName')[0])
+   # Windows 11 still reports "Windows 10" in ProductName; build 22000 and later is Windows 11.
+   try:
+    if int(winreg.QueryValueEx(key,'CurrentBuild')[0])>=22000:name=name.replace('Windows 10','Windows 11')
+   except (OSError,ValueError):pass
+   return name + ' (' + str(winreg.QueryValueEx(key,'EditionID')[0]) + ')'
  except OSError: return 'Unknown Windows edition'
 
 def has_policy_editor():
@@ -231,7 +243,11 @@ def registry_lookup(root, path, value):
   raise ValueError('Invalid registry value name')
  # Avoid huge binary dumps or arbitrary sensitive locations.
  blocked=('sam','security','system\\currentcontrolset\\control\\lsa','software\\microsoft\\credentials','software\\microsoft\\protected storage system provider')
- if any(path.lower().startswith(x) for x in blocked):raise ValueError('Protected registry location')
+ # ControlSet001/002 are the same data as CurrentControlSet, so check them under one name.
+ normalized=re.sub(r'^system\\controlset\d{3}(?=\\|$)','system\\\\currentcontrolset',path.lower().strip('\\'))
+ if any(normalized.startswith(x) for x in blocked):raise ValueError('Protected registry location')
+ # Values such as Winlogon\DefaultPassword can hold credentials in plain text.
+ if re.search(r'pass(word|wd)?|secret|credential|token',value,re.I):raise ValueError('PC Medic does not read values that may contain passwords or secrets')
  try:
   with winreg.OpenKey(roots[root],path,0,winreg.KEY_READ) as key:
    data,kind=winreg.QueryValueEx(key,value)

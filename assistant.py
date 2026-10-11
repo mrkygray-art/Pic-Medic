@@ -45,6 +45,9 @@ TOOLS = [
     {'name': 'get_recent_errors',
      'description': 'Groups of serious Windows event-log errors from the last 24 hours (hardware errors, disk errors, unexpected shutdowns, app crashes, update failures) with event IDs and counts. No message text. Use for crashes, freezes, instability and "is something wrong".',
      'input_schema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
+    {'name': 'get_latest_health_check',
+     'description': "Findings from the most recent PC Medic Health Check saved on this PC: when it ran, each finding's severity, title and suggested next step, plus memory and disk-space figures. Use when the user asks about their results, scan, findings or what to fix.",
+     'input_schema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
     {'name': 'get_performance_snapshot',
      'description': 'Current CPU, memory and disk usage percentages. Use for slowness, lag, heat or fan noise questions.',
      'input_schema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
@@ -53,7 +56,9 @@ TOOLS = [
      'input_schema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
     {'type': 'web_search_20260318', 'name': 'web_search', 'max_uses': 3, 'allowed_callers': ['direct']},
 ]
+SCAN_PATH = None  # set by dashboard.py to its scan.json location
 LABELS = {'get_computer_overview': 'Read computer model and hardware', 'get_recent_errors': 'Read recent Windows errors',
+          'get_latest_health_check': 'Read the latest Health Check',
           'get_performance_snapshot': 'Measured CPU, memory and disk use', 'get_network_status': 'Read network adapter status',
           'web_search': 'Searched the web'}
 
@@ -97,6 +102,11 @@ def run_tool(name, args, demo=False):
         if check not in system_checks.SCRIPTS:raise ValueError('Unknown check')
         return system_checks.for_cloud(check, system_checks.check(check)), 'Checked ' + system_checks.TITLES[check].split(' (')[0].lower()
     if name == 'get_recent_errors':return summarize_events(collect_event_logs()), LABELS[name]
+    if name == 'get_latest_health_check':
+        if not SCAN_PATH or not os.path.exists(SCAN_PATH):return {'available': False, 'reason': 'No Health Check has been run on this PC yet.'}, LABELS[name]
+        from ai_engine import safe_summary  # same minimized summary the ChatGPT fallback uses
+        with open(SCAN_PATH, encoding='utf-8-sig') as f:report = json.load(f)
+        return dict(safe_summary(report), generated_at_utc=report.get('generated_at_utc')), LABELS[name]
     if name == 'get_performance_snapshot':
         p = collect_performance(demo=demo)
         return {k: p.get(k) for k in ('cpu_percent', 'memory_used_percent', 'memory_total_mb', 'disk_busy_percent', 'disk_queue_length')}, LABELS[name]

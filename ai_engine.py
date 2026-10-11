@@ -13,6 +13,15 @@ SYSTEM = ("You are PC Medic, a careful Windows diagnostics assistant. Use ONLY p
           "Never claim a computer is healthy based on incomplete evidence or a root cause without verification. "
           "Mention missing evidence only when it changes the next action. Never suggest automatic repairs or destructive commands.")
 
+# ChatGPT fallback for any question (Smart mode). The scan summary is background, never the subject:
+# the old diagnostic template answered a charger question with disk-space findings.
+CHAT_SYSTEM = ("You are PC Medic, a friendly Windows technician helping a non-technical person with their own computer. "
+               "Answer the user's question directly and practically. A sanitized summary of their latest PC Medic scan is "
+               "attached as background: mention it only when it is clearly relevant to the question, and never steer the "
+               "answer toward unrelated findings. You cannot run checks or browse the web; say so when the answer depends on "
+               "facts you do not have, such as the exact computer model. Never invent part numbers, prices or links. "
+               "Plain text, no markdown headings or tables, usually under 180 words.")
+
 TOOLS = {"get_diagnostic_summary": "Review sanitized OS, memory, storage and findings from the current scan", 
          "get_process_memory": "Collect a new read-only top-process memory snapshot (process names omitted from cloud payload)"}
 
@@ -31,7 +40,10 @@ def safe_summary(report):
         if isinstance(e,dict):ev.append({'event_id':e.get('Id'),'provider':str(e.get('ProviderName',''))[:90]})
     findings=[]
     for f in analyze(report)['findings']:
-        findings.append({'severity':f.get('severity'),'title':f.get('title'),'next_step':f.get('recommended_next_step')})
+        title=str(f.get('title') or '')
+        # Drive titles end with the drive's model name ('Storage health status: Samsung SSD 980'); keep only the kind of finding.
+        if title.startswith(('Storage health status:','Drive reliability requires review:')):title=title.split(':')[0]
+        findings.append({'severity':f.get('severity'),'title':title,'next_step':f.get('recommended_next_step')})
     return {'os_family':'Windows','cpu_load_percent':cpu.get('LoadPercentage') if isinstance(cpu,dict) else None,
             'memory':{k:m.get(k) for k in ('TotalGB','FreeGB')} if isinstance(m,dict) else None,
             'disks':disks[:12], 'event_counts':{'sampled':len(ev),'ids':[e['event_id'] for e in ev[:25]]},
@@ -104,7 +116,7 @@ def ask(provider, question, report, demo, tool_approved=False, investigation=Non
         if not key:raise RuntimeError('OPENAI_API_KEY is not configured')
     evidence=safe_summary(report)
     # Only sanitized evidence + question are sent. No raw scan, user identity or process names.
-    prompt='Question: '+question+'\nSanitized diagnostic evidence: '+json.dumps(evidence)
+    prompt='Question: '+question+'\n\nBackground (latest PC Medic scan, sanitized; use only if relevant): '+json.dumps(evidence)
     if investigation is not None:prompt+='\nSanitized performance investigation: '+json.dumps(sanitize_investigation(investigation))
     if provider=='claude':
         url='https://api.anthropic.com/v1/messages'
@@ -115,7 +127,11 @@ def ask(provider, question, report, demo, tool_approved=False, investigation=Non
             result=post(url,headers,{'model':model,'max_tokens':900,'system':SYSTEM,'messages':msgs,'tools':defs,'tool_choice':{'type':'auto','disable_parallel_tool_use':True}})
             blocks=result.get('content',[])
             calls=[b for b in blocks if b.get('type')=='tool_use']
-            if not calls:return {'answer':'\n'.join(b.get('text','') for b in blocks if b.get('type')=='text'),'tools_used':used, 'provider':provider}
+            if not calls:
+                if result.get('stop_reason')=='refusal':raise RuntimeError('Claude declined to answer this question.')
+                text='\n'.join(b.get('text','') for b in blocks if b.get('type')=='text').strip()
+                if not text:raise RuntimeError('Claude returned no answer'+(' (it ran out of space)' if result.get('stop_reason')=='max_tokens' else '')+'.')
+                return {'answer':text,'tools_used':used, 'provider':provider}
             msgs.append({'role':'assistant','content':blocks})
             tool_results=[]
             for call in calls:
@@ -124,20 +140,14 @@ def ask(provider, question, report, demo, tool_approved=False, investigation=Non
                 tool_results.append({'type':'tool_result','tool_use_id':call['id'],'content':json.dumps(data)})
             msgs.append({'role':'user','content':tool_results})
         raise RuntimeError('AI exceeded diagnostic tool-call limit')
+    # OpenAI: one request, no tools. Replaying reasoning items with store disabled fails in a tool loop on
+    # current models, and the summary is already in the prompt.
     url='https://api.openai.com/v1/responses'
     headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'}
-    defs=[{'type':'function','name':n,'description':d,'parameters':{'type':'object','properties':{},'required':[],'additionalProperties':False},'strict':True} for n,d in TOOLS.items()]
-    inputs=[{'role':'user','content':prompt}];used=[]
-    for _ in range(3):
-        result=post(url,headers,{'model':model,'instructions':SYSTEM,'input':inputs,'tools':defs,'max_output_tokens':1100,'store':False})
-        output=result.get('output',[])
-        calls=[x for x in output if x.get('type')=='function_call']
-        if not calls:
-            texts=[c.get('text','') for x in output if x.get('type')=='message' for c in x.get('content',[]) if c.get('type')=='output_text']
-            return {'answer':'\n'.join(texts) or result.get('output_text','No text response'),'tools_used':used, 'provider':provider}
-        inputs.extend(output)
-        for call in calls:
-            used.append(call.get('name',''))
-            data=execute_tool(call.get('name',''),report,demo,tool_approved)
-            inputs.append({'type':'function_call_output','call_id':call['call_id'],'output':json.dumps(data)})
-    raise RuntimeError('AI exceeded diagnostic tool-call limit')
+    result=post(url,headers,{'model':model,'instructions':CHAT_SYSTEM,'input':[{'role':'user','content':prompt}],'max_output_tokens':2500,'store':False})
+    texts=[c.get('text','') for x in result.get('output',[]) if x.get('type')=='message' for c in x.get('content',[]) if c.get('type')=='output_text']
+    answer='\n'.join(texts).strip()
+    if not answer:
+        if result.get('status')=='incomplete':raise RuntimeError('ChatGPT ran out of space before answering. Try a shorter or more specific question.')
+        raise RuntimeError('ChatGPT returned no answer.')
+    return {'answer':answer,'tools_used':[],'provider':provider}

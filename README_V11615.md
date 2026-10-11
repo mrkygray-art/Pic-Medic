@@ -43,8 +43,28 @@
 - **Startup:** the answer box starts empty. The last Health Check summary appears only after a Health Check runs.
 - **Known limitation:** the ChatGPT path reuses the original `ai_engine` analysis prompt. It cannot run checks or search the web, and it frames answers around the latest Health Check, so Claude gives much better general answers.
 
+## Review fixes (four parallel reviews of the inherited features)
+- **Serious:**
+  - Storage Explorer refuses files larger than the drive's Recycle Bin, and drives with the bin turned off. It recycles through `SHFileOperationW` with `FOF_ALLOWUNDO|FOF_WANTNUKEWARNING`; the old VB call silently deleted such files permanently.
+  - All PowerShell calls use UTF-8. Non-English names used to crash the Health Check.
+  - Verdict severities: failing drives and disk or hardware errors are `high` (Fix soon), and info-only results show as Healthy.
+  - PowerShell launches from the right folder.
+  - Warning-level disk and hardware event IDs are collected.
+- **Medium:**
+  - Disk busy is 100 minus idle time, so it never exceeds 100% and history saves no longer fail.
+  - The Stop button works on every Health Check.
+  - The chart and AI evidence follow the newest diagnostic.
+  - Performance Watch keeps a real 10-second schedule, Stop responds instantly, failed samples are retried, and the spike cap no longer ends a watch.
+  - A cancelled admin prompt is not retried.
+  - The registry viewer blocks the `ControlSet00x` alias and password-like values.
+  - Storage Explorer: lstat junction detection, de-duplication, per-window selections and the diagnostic slot.
+  - The ChatGPT fallback uses a general prompt with scan data as background only, makes no tool loop, and strips drive names.
+  - The old console entry points go through the current assistant.
+  - Claude gets a `get_latest_health_check` tool.
+- **Small:** the Review-large-files button works, Windows 11 is named correctly, and Defender scan options open the scan page.
+
 ## Tests
-`python -m unittest discover -p "test_*.py"` runs the full suite (about 70 tests): the handoff acceptance table, research labels and citations (Claude mocked, no cost), the no-key behavior, HTTP contracts, foreign-host rejection, the cross-window lock and collector mode.
+`python -m unittest discover -p "test_*.py"` runs the full suite (108 tests): the handoff acceptance table, research labels and citations (Claude mocked, no cost), the no-key behavior, HTTP contracts, foreign-host rejection, the cross-window lock and collector mode.
 
 ## Known limitations
 - Live research requires an Anthropic API key and is billed per use. Claude picks its own search terms, so the consent dialog shows the prompt and domains, not the queries.

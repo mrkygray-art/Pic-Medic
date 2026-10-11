@@ -10,11 +10,15 @@ def parse_metrics(raw):
             return round(v,2) if 0<=v<=1000000 else None
         except (TypeError,ValueError,OverflowError):return None
     total=num('total_mb');available=num('available_mb')
+    # '% Disk Time' exceeds 100 on fast or multi-queue drives; busy = 100 - '% Idle Time' stays within 0-100.
+    idle=num('disk_idle_percent')
+    busy=round(max(0.0,100-min(idle,100)),2) if idle is not None else num('disk_busy_percent')
+    if busy is not None:busy=min(busy,100.0)
     return {'sampled_at_utc':datetime.now(timezone.utc).isoformat(),
             'cpu_percent':num('cpu_percent'), 'memory_total_mb':total,
             'memory_available_mb':available,
             'memory_used_percent':round(100*(total-available)/total,2) if total and available is not None and available<=total else None,
-            'disk_busy_percent':num('disk_busy_percent'),
+            'disk_busy_percent':busy,
             'disk_queue_length':num('disk_queue_length'),
             'note':'Read-only system counters. Disk activity is an instantaneous sample; counter availability varies by Windows installation.'}
 
@@ -27,7 +31,7 @@ def collect_performance(demo=False):
 $c=Get-CimInstance Win32_PerfFormattedData_PerfOS_Processor -Filter "Name='_Total'";
 $m=Get-CimInstance Win32_OperatingSystem;
 $d=Get-CimInstance Win32_PerfFormattedData_PerfDisk_PhysicalDisk -Filter "Name='_Total'";
-[pscustomobject]@{cpu_percent=$c.PercentProcessorTime;total_mb=[math]::Round($m.TotalVisibleMemorySize/1024,2);available_mb=[math]::Round($m.FreePhysicalMemory/1024,2);disk_busy_percent=$d.PercentDiskTime;disk_queue_length=$d.CurrentDiskQueueLength}|ConvertTo-Json -Compress"""
+[pscustomobject]@{cpu_percent=$c.PercentProcessorTime;total_mb=[math]::Round($m.TotalVisibleMemorySize/1024,2);available_mb=[math]::Round($m.FreePhysicalMemory/1024,2);disk_busy_percent=$d.PercentDiskTime;disk_idle_percent=$d.PercentIdleTime;disk_queue_length=$d.CurrentDiskQueueLength}|ConvertTo-Json -Compress"""
     p=subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-Command',script],capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=30,check=False,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
     if p.returncode:raise RuntimeError('Windows performance counters unavailable; try restarting PC Medic')
     try:return parse_metrics(json.loads(p.stdout.strip()))

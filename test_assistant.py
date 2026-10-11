@@ -99,7 +99,7 @@ class TestTools(unittest.TestCase):
 
     def test_every_tool_is_read_only_and_documented(self):
         names = {t['name'] for t in assistant.TOOLS}
-        self.assertEqual(names, {'get_computer_overview', 'run_check', 'get_recent_errors', 'get_performance_snapshot', 'get_network_status', 'web_search'})
+        self.assertEqual(names, {'get_computer_overview', 'run_check', 'get_recent_errors', 'get_latest_health_check', 'get_performance_snapshot', 'get_network_status', 'web_search'})
         self.assertEqual(set(assistant.TOOLS[1]['input_schema']['properties']['check']['enum']), set(assistant.system_checks.SCRIPTS))
 
 
