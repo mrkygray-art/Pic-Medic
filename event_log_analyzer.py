@@ -34,6 +34,14 @@ PROVIDERS = {
     1002: ("application hang",), 20: ("windowsupdateclient",),
 }
 
+def event_time(value):
+    """ISO time from PowerShell 5 JSON, which encodes dates as '/Date(1791631615000)/'."""
+    import re
+    from datetime import datetime, timezone
+    m=re.search(r'/Date\((-?\d+)',str(value or ''))
+    if m:return datetime.fromtimestamp(int(m.group(1))/1000,timezone.utc).isoformat(timespec='seconds')
+    return str(value or '')[:32]
+
 def summarize_events(check):
     if not isinstance(check, dict) or check.get('status') != 'ok':
         return {'status':'unavailable','groups':[], 'reason': (check or {}).get('reason','Event logs could not be read') if isinstance(check,dict) else 'Event logs could not be read'}
@@ -58,7 +66,7 @@ def summarize_events(check):
             provider=str(e.get('ProviderName','')).lower()
             if not any(p.lower() in provider for p in PROVIDERS[eid]):continue
             key=(eid,provider[:90]);counts[key]+=1
-            t=str(e.get('TimeCreated',''))[:32]
+            t=event_time(e.get('TimeCreated'))
             if t:times.setdefault(key,[]).append(t)
         for (eid,provider),n in counts.most_common(8):
             groups.append({'channel':name,'event_id':eid,'provider':provider,'count_sampled':n,

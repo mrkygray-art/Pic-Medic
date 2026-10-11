@@ -25,8 +25,14 @@
 - **The scan would break in a packaged .exe.** It relaunched `sys.executable collector.py`. A frozen build now relaunches itself with `--run-collector`. Scan data and history go to `%LOCALAPPDATA%\PC Medic` when frozen.
 - **Diagnostics could overlap across windows.** A server-side lease (`POST /api/activity`, renewed by each sample, expiring after 90 seconds) now allows one Health Check or Performance Watch at a time across all windows. The other window shows an amber "blocked" message.
 
+## New features
+- **Chat history.** Earlier questions and answers stack as chat bubbles above the current answer. The answer box is read-only output.
+- **Seven read-only checks** (`system_checks.py`, `GET /api/check?name=`): battery wear (`powercfg /batteryreport`), disk health and free space, blue screens and unexpected restarts (30 days), Windows Update failures (30 days), startup apps, pending restart, and listening network ports. Questions route to them through the `system_check` intent. `for_cloud()` removes process names, app names and duplicates before Claude sees anything.
+- **Claude investigation mode** (`assistant.py`, `POST /api/assistant`). An "Answer with: Offline | Claude" switch, with Offline as the default. Claude (`claude-opus-5-5`, override with `PCMEDIC_ASSISTANT_MODEL`) chooses among read-only tools: computer overview, a system check, recent errors, performance snapshot, network status and web search. Conversations are held on the server, so follow-ups keep context. Consent is asked once per page session. Offline fallbacks (howto, clarify) offer "Ask Claude instead". A live test cost about $0.10–0.25 per question.
+- **Technician report** (`report.py`, `POST /api/technician-report`). One printable HTML page with computer details, Health Check findings, current checks, recent errors, the session's questions and answers, and editable technician notes. Print / Save as PDF. All text is HTML-escaped.
+
 ## Tests
-`python -m unittest discover -p "test_*.py"` runs 42 tests: the handoff acceptance table, research labels and citations (Claude mocked, no cost), the no-key behavior, HTTP contracts, foreign-host rejection, the cross-window lock and collector mode.
+`python -m unittest discover -p "test_*.py"` runs the full suite (about 70 tests): the handoff acceptance table, research labels and citations (Claude mocked, no cost), the no-key behavior, HTTP contracts, foreign-host rejection, the cross-window lock and collector mode.
 
 ## Known limitations
 - Live research requires an Anthropic API key and is billed per use. Claude picks its own search terms, so the consent dialog shows the prompt and domains, not the queries.

@@ -25,6 +25,7 @@ from storage_explorer import inventory, recycle
 from device_diagnostics import inventory as device_inventory
 import system_checks
 import assistant
+import report as tech_report
 
 BASE = Path(__file__).resolve().parent
 FROZEN = getattr(sys, 'frozen', False)
@@ -358,7 +359,8 @@ class Handler(BaseHTTPRequestHandler):
   if self.headers.get('X-PC-Medic-Token')!=TOKEN: return self.send_json({'error':'Invalid request token'},403)
   try:
    n=int(self.headers.get('Content-Length','0'))
-   if n<0 or n>(32768 if path in ('/api/performance-summary','/api/ai-ask','/api/ask') else 4096): return self.send_json({'error':'Request too large'},413)
+   limit=131072 if path=='/api/technician-report' else 32768 if path in ('/api/performance-summary','/api/ai-ask','/api/ask') else 4096
+   if n<0 or n>limit: return self.send_json({'error':'Request too large'},413)
    body=json.loads(self.rfile.read(n) or b'{}')
    if not isinstance(body,dict): return self.send_json({'error':'Expected a JSON object'},400)
    if not isinstance(body,dict):raise ValueError('Invalid request')
@@ -442,6 +444,14 @@ class Handler(BaseHTTPRequestHandler):
     result=ai_ask(provider,question,current_report,self.server.demo,body.get('tool_approved') is True,investigation)
     return self.send_json(result)
    except (RuntimeError,ValueError,OSError) as exc:return self.send_json({'error':str(exc)},502)
+  if path=='/api/technician-report':
+   turns=body.get('conversation')
+   if turns is not None and not isinstance(turns,list):return self.send_json({'error':'Invalid conversation'},400)
+   try:scan=get_report(self.server.demo)
+   except (FileNotFoundError,ValueError,OSError,json.JSONDecodeError):scan=None
+   content=tech_report.generate(scan,turns).encode('utf-8')
+   self.send_response(200);self.send_header('Content-Type','text/html; charset=utf-8');self.send_header('Content-Length',str(len(content)));self.send_header('Cache-Control','no-store');self.send_header('X-Content-Type-Options','nosniff');self.end_headers()
+   return self.wfile.write(content)
   if path=='/api/assistant':
    if body.get('consent') is not True:return self.send_json({'error':'Approval to share data with Claude is required'},403)
    question=body.get('question','')
