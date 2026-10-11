@@ -33,6 +33,17 @@ def classify(question, context=None):
         return {'intent':'replacement_part','part':'replacement laptop charger','scan':'none'}
     if has(r'\b(batter(y|ies))\b') and has(r'\b(replace\w*|new|buy|purchase|order|need|find|where can i|swap)\b') and not has(r'\b(drain\w*|health|life|report|lasting|dies fast)\b'):
         return {'intent':'replacement_part','part':'replacement laptop battery','scan':'none'}
+    # Questions a read-only Windows check can answer directly (system_checks.py).
+    checks=[
+        ('battery',r'\bbatter(y|ies)\b.*\b(health|life|wear\w*|capacity|drain\w*|cycles?|condition|report|dies|lasting|lasts|hold\w*|good|ok)\b|\bhow (is|good is) my battery\b'),
+        ('crashes',r'\b(blue ?screens?|bsod|crash\w*|stop code|bug ?check)\b|\b(restart\w*|reboot\w*|shut\w* (down|off))\b.*\b(by itself|on its own|randomly|unexpectedly|for no reason)\b'),
+        ('updates',r'\b(windows )?updates?\b.*\b(fail\w*|error\w*|stuck|won.t install|not installing|history)\b'),
+        ('startup_apps',r'\b(startup apps?|start ?up programs?|launch at startup)\b|\b(slow|long|forever)\b.*\b(boot\w*|start ?up|to start)\b|\bstarts slowly\b'),
+        ('pending_reboot',r'\b(need|have|should i) to (restart|reboot)\b|\b(restart|reboot) (pending|required|needed)\b|\bpending (restart|reboot)\b|\buptime\b|\blast (restart|reboot)\b'),
+        ('disk_health',r'\b(disk|drive|ssd|hard drive|hdd)\b.*\b(health\w*|failing|dying|smart|bad sectors?|errors?|wear|full|free space|space left|running out)\b'),
+    ]
+    for name,pattern in checks:
+        if has(pattern):return {'intent':'system_check','check':name,'scan':'none'}
     # Opening a Windows tool is an allowlisted, user-approved launch, never command execution.
     if has(r'\b(open|launch|start|run|bring up)\b') and has(r'\b(powershell|power shell|command prompt|cmd(\.exe)?|dos|terminal)\b'):
         return {'intent':'open_tool','tool':'powershell' if has(r'\b(powershell|power shell|terminal)\b') else 'command-prompt','scan':'none'}

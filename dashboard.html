@@ -235,8 +235,20 @@ function showPortsClarification(question){
  const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent=label;b.onclick=()=>{row.remove();pendingClarification=null;$('pc-question').value='';answerPorts(question,value)};row.append(b)}
  $('assistant-status').after(row);$('assistant-status').textContent='Waiting for your choice · No diagnostic started.';
 }
+// Read-only Windows checks from system_checks.py; the server returns a plain-English summary.
+const CHECK_LABELS={battery:'battery health',disk_health:'disk health and free space',crashes:'crash and restart history',updates:'Windows Update history',startup_apps:'startup apps',pending_reboot:'pending restarts',listening_ports:'listening network ports'};
+async function answerSystemCheck(question,name){
+ $('assistant-status').textContent='Checking '+(CHECK_LABELS[name]||name)+' · Offline · Read-only…';
+ $('symptom').value='Your question: '+question+'\n\nChecking '+(CHECK_LABELS[name]||name)+'…';
+ try{
+  const r=await getJSON('/api/check?name='+encodeURIComponent(name));
+  $('symptom').value='Your question: '+question+'\n\n'+r.summary+'\n\nNo settings were changed.';
+  $('assistant-status').textContent=r.available?'Check complete · Offline · Read-only.':'Check unavailable on this computer.';
+  if(name==='battery'&&/heavy wear|noticeable wear/.test(r.summary))showResearchOffer('replacement laptop battery',question,'Battery wear detected');
+ }catch(e){$('symptom').value='Your question: '+question+'\n\nThe check could not finish: '+e.message;$('assistant-status').textContent='Check unavailable.';}
+}
 async function answerPorts(question,kind){
- if(kind==='network'){$('symptom').value='Your question: '+question+'\n\nNetwork ports are numbered endpoints used by applications. A safe investigation can list listening TCP/UDP ports and owning processes. That collector is not installed yet; PC Medic will not claim a port count without inspecting Windows. No port scan was started.';return;}
+ if(kind==='network'){await answerSystemCheck(question,'listening_ports');return;}
  if(kind==='physical'){$('symptom').value='Your question: '+question+'\n\nPhysical ports include USB, HDMI, Ethernet and audio connectors. Windows can inventory connected controllers but cannot reliably count all external sockets. Check the manufacturer service manual for the exact model. No diagnostic was started.';return;}
  await answerHardwareQuestion(question+' → RAM slots','ram');
 }
@@ -358,6 +370,7 @@ async function startGuidedDiagnosis(){
  if(intent==='replacement_part'){if(/charger/.test(understanding.part))await investigateReplacementCharger(userSymptom);else await investigateReplacementPart(userSymptom,understanding.part);return;}
  if(intent==='open_tool'){await openRequestedUtility(userSymptom,understanding.tool);return;}
  if(intent==='ports_clarify'){showPortsClarification(userSymptom);return;}
+ if(intent==='system_check'){await answerSystemCheck(userSymptom,understanding.check);return;}
  if(intent==='network_inventory'){await answerNetworkQuestion(userSymptom);return;}
  if(intent==='hardware_inventory'){await answerInventoryQuestion(userSymptom);return;}
  if(intent==='memory_clarify'){showMemoryClarification(userSymptom);return;}

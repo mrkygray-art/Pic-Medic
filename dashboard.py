@@ -12,7 +12,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 from hardware_advisor import inventory as hardware_inventory, ram_advice
 from parts_research import research as parts_research, preview as parts_preview
 from network_advisor import inventory as network_inventory
@@ -23,6 +23,7 @@ from process_diagnostics import collect_processes
 from performance_diagnostics import collect_performance, summarize
 from storage_explorer import inventory, recycle
 from device_diagnostics import inventory as device_inventory
+import system_checks
 
 BASE = Path(__file__).resolve().parent
 FROZEN = getattr(sys, 'frozen', False)
@@ -332,6 +333,11 @@ class Handler(BaseHTTPRequestHandler):
   if path=='/api/hardware-upgrade':
    try: return self.send_json({'hardware':hardware_inventory()})
    except Exception as exc: return self.send_json({'hardware':{'available':False,'reason':'Windows hardware collector encountered an error ('+type(exc).__name__+').'}},200)
+  if path=='/api/check':
+   name=(parse_qs(urlparse(self.path).query).get('name') or [''])[0]
+   if name not in system_checks.SCRIPTS:return self.send_json({'error':'Unknown check'},400)
+   data=system_checks.check(name)
+   return self.send_json({'name':name,'available':data.get('available',False),'summary':system_checks.describe(name,data)})
   if path=='/api/history':return self.send_json({'history':history_read()})
   if path=='/api/disk-forecast':return self.send_json({'forecast':disk_forecast(history_read())})
   if path=='/api/advanced-capabilities':return self.send_json({'edition':windows_edition(),'policy_available':has_policy_editor(),'windows':os.name=='nt'})
