@@ -26,7 +26,7 @@ def inventory():
         return {'available': False, 'reason': 'Network inventory requires Windows.'}
     try:
         p = subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-Command',PS],
-                           capture_output=True,text=True,timeout=15,
+                           capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=15,
                            creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
         if p.returncode or not p.stdout.strip():
             return {'available':False,'reason':'Windows network inventory returned no data.'}

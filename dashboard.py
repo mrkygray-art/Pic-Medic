@@ -43,7 +43,7 @@ TOKEN = secrets.token_urlsafe(32)
 # Performance Watch holds a lease, renewed by each sample; a closed tab's lease expires on its own.
 ACTIVITY = {'kind': None, 'owner': None, 'until': 0.0}
 ACTIVITY_LOCK = threading.Lock()
-ACTIVITY_LABELS = {'health': 'A Health Check', 'watch': 'A Performance Watch'}
+ACTIVITY_LABELS = {'health': 'A Health Check', 'watch': 'A Performance Watch', 'storage': 'A Storage Explorer search'}
 LEASE_SECONDS = 90
 
 def activity_conflict(owner, kind=None, seconds=LEASE_SECONDS):
@@ -141,7 +141,8 @@ def answer(question, report):
 
 # Approved built-in Windows tools only. Opening a tool never applies a repair.
 WINDOWS_TOOLS = {
- 'powershell': ('Windows PowerShell', 'powershell.exe'),
+ # PowerShell 5.1 lives in its own folder; System32\powershell.exe does not exist.
+ 'powershell': ('Windows PowerShell', r'WindowsPowerShell\v1.0\powershell.exe'),
  'command-prompt': ('Command Prompt', 'cmd.exe'),
  'optimize': ('Optimize Drives', 'dfrgui.exe'),
  'event-viewer': ('Event Viewer', 'eventvwr.msc'),
@@ -349,6 +350,12 @@ class Handler(BaseHTTPRequestHandler):
   if not local_security.same_user(self.client_address,self.server.server_address[1]):return OTHER_ACCOUNT
   return None
  def refuse(self,reason):
+  # Read the unread request body first; replying mid-upload makes Windows reset the connection,
+  # so the caller would see "connection reset" instead of this message.
+  try:
+   n=int(self.headers.get('Content-Length','0') or 0)
+   if 0<n<=1048576:self.rfile.read(n)
+  except (ValueError,OSError):pass
   if urlparse(self.path).path=='/':
    page=f'<!doctype html><meta charset=utf-8><title>PC Medic</title><p style="font:16px system-ui;max-width:560px;margin:60px auto">{reason}</p>'.encode()
    self.send_response(403);self.send_header('Content-Type','text/html; charset=utf-8');self.send_header('Content-Length',str(len(page)));self.end_headers();return self.wfile.write(page)
@@ -452,14 +459,19 @@ class Handler(BaseHTTPRequestHandler):
    except (RuntimeError,subprocess.TimeoutExpired) as exc:return self.send_json({'error':str(exc)},500)
   if path=='/api/storage-search':
    if self.server.demo:return self.send_json({'error':'Storage Explorer unavailable in demo mode'},403)
-   try:return self.send_json(inventory(body.get('minimum_mb',100),body.get('category','all'),body.get('scope','profile')))
-   except (RuntimeError,ValueError) as exc:return self.send_json({'error':str(exc)},400)
+   owner=body.get('owner') if valid_owner(body.get('owner')) else 'default'
+   # A search reads the disk for up to 40 seconds, so it takes the single diagnostic slot like a scan.
+   busy=activity_conflict(owner,'storage',seconds=60)
+   if busy:return self.send_json({'error':busy+' is already running in another PC Medic window. Wait for it to finish.'},409)
+   try:return self.send_json(inventory(body.get('minimum_mb',100),body.get('category','all'),body.get('scope','profile'),owner))
+   except (RuntimeError,ValueError,OSError) as exc:return self.send_json({'error':str(exc)},400)
+   finally:release_activity(owner)
   if path=='/api/storage-recycle':
    if self.server.demo:return self.send_json({'error':'Storage Explorer unavailable in demo mode'},403)
    try:
     if not isinstance(body.get('id'),str):raise ValueError('Invalid selection')
     if body.get('approved') is not True:raise ValueError('File-specific approval is required')
-    return self.send_json(recycle(body['id']))
+    return self.send_json(recycle(body['id'],body.get('owner') if valid_owner(body.get('owner')) else 'default'))
    except (RuntimeError,ValueError,OSError,subprocess.TimeoutExpired) as exc:return self.send_json({'error':str(exc)},400)
   if path=='/api/ai-ask':
    question=body.get('question','');provider=body.get('provider','');consent=body.get('consent')
@@ -526,7 +538,7 @@ class Handler(BaseHTTPRequestHandler):
    if not LOCK.acquire(blocking=False):return self.send_json({'error':'Scan already running'},409)
    try:
     # Fixed allowlisted script, fixed output path, no shell or user-controlled command.
-    result=subprocess.run(collector_command(),capture_output=True,text=True,timeout=180,check=False,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
+    result=subprocess.run(collector_command(),capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=180,check=False,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
     if result.returncode:return self.send_json({'error':'Collector failed','details':result.stderr[-500:]},500)
     report=get_report(False)
     return self.send_json({'report':report,'analysis':analyze(report),'demo':False,'csrf':TOKEN})

@@ -9,12 +9,14 @@ from pathlib import Path
 
 
 def powershell(script, timeout=20):
-    command = ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script]
+    # Ask PowerShell for UTF-8 and decode it as UTF-8: device and app names may contain any language.
+    command = ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", "[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false);" + script]
     try:
-        result = subprocess.run(command, capture_output=True, text=True, timeout=timeout, check=False)
+        result = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout, check=False,
+                                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         if result.returncode != 0:
             return {"status": "unavailable", "reason": "command failed or access denied"}
-        data = json.loads(result.stdout.strip())
+        data = json.loads((result.stdout or "").lstrip("\ufeff").strip())
         return {"status": "ok", "data": data}
     except (subprocess.TimeoutExpired, OSError, json.JSONDecodeError, ValueError):
         return {"status": "unavailable", "reason": "timed out, unsupported, or invalid output"}
@@ -48,6 +50,11 @@ $results=@(foreach($name in $channels){
     } else { [pscustomobject]@{name=$name;status='unavailable';events=@()} }
   }
 })
+# Early disk and hardware warnings (disk retries/timeouts, corrected WHEA errors) are logged at Warning level,
+# so read those specific IDs too; a general Level-3 query would be flooded by routine warnings.
+$warnings=@()
+try { $warnings=@(Get-WinEvent -FilterHashtable @{LogName='System';StartTime=$since;Level=3;Id=@(17,19,51,129,153)} -MaxEvents 80 -ErrorAction Stop | Select-Object Id,ProviderName,Level,TimeCreated) } catch {}
+foreach($c in $results){ if($c.name -eq 'System' -and $c.status -eq 'ok'){ $c.events=@($c.events)+$warnings } }
 [pscustomobject]@{window_hours=24;limit_per_channel=80;channels=$results} | ConvertTo-Json -Depth 7 -Compress
 """
     return powershell(script,timeout=45)

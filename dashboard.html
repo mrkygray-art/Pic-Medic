@@ -585,17 +585,18 @@ function updateAssessment(){
  if(!reportReady)return;
  // userSymptom comes only from the Ask box; the assessment box holds PC Medic's own output.
  const box=$('symptom');
- const serious=issues.some(x=>/critical|urgent|high/i.test(x.severity||''));
- const verdict=serious?'Fix soon — review the flagged issues':issues.length?'Watch — no urgent failure confirmed':'Healthy — no actionable issues detected in available checks';
+ // high → Fix soon; warning/unknown → Watch; info-only notes are still Healthy (see analyze.py severities).
+ const serious=issues.some(x=>/critical|urgent|high/i.test(x.severity||'')),watch=issues.some(x=>/warning|unknown/i.test(x.severity||''));
+ const verdict=serious?'Fix soon — review the flagged issues':watch?'Watch — no urgent failure confirmed':issues.length?'Healthy — a few notes below':'Healthy — no actionable issues detected in available checks';
  const summary=issues.length?issues.slice(0,3).map((x,i)=>`${i+1}. ${x.title}. ${x.detail}`).join('\n'):'No concerns flagged by the available checks.';
  const steps=issues.length?'Next: Review these findings with PC Medic and follow safe, evidence-based recommendations.':'Next: No action needed right now unless you notice symptoms.';
  lastAutoAssessment=`${verdict}\n${summary}\n${steps}`.slice(0,1500);
  box.value=(userSymptom?'Your reported symptom: '+userSymptom.slice(0,350)+'\n\n':'')+lastAutoAssessment;
 }
 function updateVerdict(){
- const findings=issues||[];const serious=findings.some(x=>/critical|urgent|high/i.test(x.severity||''));
- const title=!reportReady?'Ready to check your PC':serious?'Fix soon — review these findings':findings.length?'Watch — no confirmed urgent failure':'Healthy — no actionable issues detected';
- const panel=$('verdict');panel.classList.toggle('fix',serious);panel.classList.toggle('watch',!serious&&findings.length>0);
+ const findings=issues||[];const serious=findings.some(x=>/critical|urgent|high/i.test(x.severity||'')),watch=findings.some(x=>/warning|unknown/i.test(x.severity||''));
+ const title=!reportReady?'Ready to check your PC':serious?'Fix soon — review these findings':watch?'Watch — no confirmed urgent failure':findings.length?'Healthy — a few notes below':'Healthy — no actionable issues detected';
+ const panel=$('verdict');panel.classList.toggle('fix',serious);panel.classList.toggle('watch',!serious&&watch);
  $('verdict-title').textContent=title;
  $('verdict-desc').textContent=!reportReady?'Run your first check to get a verdict.':findings.length?`${findings.length} observation(s) to review. Findings are not confirmed faults.`:'No issues flagged by the available rule-based checks. This does not guarantee hardware health.';
  const next=$('verdict-next');next.replaceChildren();findings.slice(0,3).forEach((x,i)=>next.append(html('div','',`${i+1}. ${x.title} — ${x.detail}`)));
@@ -893,7 +894,7 @@ $('discover-files').onclick=()=>{document.querySelector('[data-tab="explorer"]')
 $('file-search').onclick=async()=>{
  const b=$('file-search');b.disabled=true;$('file-results').replaceChildren();$('file-status').textContent='Searching the selected area locally. This may take up to 40 seconds...';
  try{
-  const p=await request('/api/storage-search',{category:$('file-category').value,minimum_mb:Number($('file-minimum').value),scope:$('file-scope').value});
+  const p=await request('/api/storage-search',{owner:windowId,category:$('file-category').value,minimum_mb:Number($('file-minimum').value),scope:$('file-scope').value});
   $('file-status').textContent=`Found ${p.matches} matching files. Showing ${p.files.length}. Inspected ${p.scanned_files} files.${p.limited?' Search limit reached; results may be incomplete.':''} ${p.note} Searched: ${(p.folders||[]).join(', ')||'no accessible folders'}. ${p.matches===0?'Try a smaller minimum size or a broader search area.':''}`;
   for(const f of p.files){const row=html('div','file-entry'),info=html('div','file-info'),name=html('strong','',f.name),meta=html('small','',`${f.size_mb} MB · ${f.category} · ${f.folder}`),safety=html('small','',f.classification),del=html('button','secondary','Move to Recycle Bin');info.append(name,meta,safety);if(f.recyclable){row.append(info,del)}else{del.disabled=true;del.textContent='Protected — view only';row.append(info,del)}$('file-results').append(row);
    del.onclick=()=>{
@@ -905,7 +906,7 @@ $('file-search').onclick=async()=>{
     const label=html('label',''),check=document.createElement('input');check.type='checkbox';label.append(check,document.createTextNode(' I understand and approve moving this specific file to the Recycle Bin.'));
     const actions=html('div',''),cancel=html('button','secondary','Cancel'),approve=html('button','secondary','Move to Recycle Bin');approve.disabled=true;
     check.onchange=()=>{approve.disabled=!check.checked};cancel.onclick=()=>review.remove();
-    approve.onclick=async()=>{approve.disabled=true;cancel.disabled=true;approve.textContent='Moving...';try{const result=await request('/api/storage-recycle',{id:f.id,approved:true});row.remove();$('file-status').textContent=result.message}catch(e){approve.disabled=false;cancel.disabled=false;approve.textContent='Move to Recycle Bin';$('file-status').textContent='Could not recycle: '+e.message}};
+    approve.onclick=async()=>{approve.disabled=true;cancel.disabled=true;approve.textContent='Moving...';try{const result=await request('/api/storage-recycle',{id:f.id,approved:true,owner:windowId});row.remove();$('file-status').textContent=result.message}catch(e){approve.disabled=false;cancel.disabled=false;approve.textContent='Move to Recycle Bin';$('file-status').textContent='Could not recycle: '+e.message}};
     actions.append(cancel,approve);review.append(heading,details,warning,label,actions);row.querySelector('.recycle-review')?.remove();row.append(review);
    };
   }

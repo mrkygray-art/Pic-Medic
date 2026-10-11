@@ -18,8 +18,8 @@ def collect_processes(demo=False):
   script = ("Get-CimInstance Win32_Process | "
             "Select-Object Name,ProcessId,WorkingSetSize | "
             "ConvertTo-Json -Compress -Depth 3")
-  proc=subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-Command',script],
-    capture_output=True,text=True,timeout=35,check=False)
+  proc=subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-Command','[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false);'+script],
+    capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=35,check=False,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
   if proc.returncode:
    raise RuntimeError('Windows process collection failed: '+proc.stderr[-200:])
   try: raw=json.loads(proc.stdout.strip() or '[]')

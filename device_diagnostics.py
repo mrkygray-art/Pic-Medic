@@ -24,7 +24,7 @@ def inventory(demo=False):
         return {'devices': [{'name':'Demo Wi-Fi Adapter','category':'Net','status':'OK','problem_code':'','driver_provider':'Demo','driver_version':'1.0','driver_date':'2026-01-01'}, {'name':'Demo USB Device','category':'USB','status':'Error','problem_code':'28','driver_provider':'','driver_version':'','driver_date':''}], 'demo': True}
     if os.name != 'nt':
         raise RuntimeError('Device inventory is supported on Windows only')
-    result = subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-Command',SCRIPT],capture_output=True,text=True,timeout=75,check=False)
+    result = subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-Command','[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false);'+SCRIPT],capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=75,check=False,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
     if result.returncode:
         raise RuntimeError('Windows device inventory failed: '+result.stderr[-350:])
     try:

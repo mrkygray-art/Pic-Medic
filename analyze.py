@@ -11,6 +11,11 @@ def records(value):
     return value if isinstance(value, list) else ([value] if isinstance(value, dict) else [])
 
 
+# Event IDs (event_log_analyzer.PRIORITY) that mean failing hardware vs. early warning signs.
+HIGH_EVENTS = {7, 11, 18}            # bad disk block, disk controller error, fatal hardware error
+WARNING_EVENTS = {17, 19, 41, 51, 55, 129, 153, 6008}
+
+
 def analyze(report):
     findings = []
     def add(level, title, evidence, next_step):
@@ -37,16 +42,17 @@ def analyze(report):
             if size <= 0: continue
             free_pct = 100 * free / size
             drive = disk.get('DeviceID', 'Drive')
-            if free_pct < 10:
+            # Percent alone misfires on large drives (74 GB free is plenty), so require a low absolute amount too.
+            if free_pct < 10 or free < 10:
                 add('warning', f'Low disk space on {drive}', f'{free:.1f} GB free ({free_pct:.1f}%)', 'Review large files and Windows storage settings; do not delete files automatically.')
-            elif free_pct < 20:
+            elif free_pct < 20 and free < 30:
                 add('info', f'Disk space getting low on {drive}', f'{free:.1f} GB free ({free_pct:.1f}%)', 'Review storage usage and plan cleanup if needed.')
         except (KeyError, TypeError, ValueError):
             add('unknown', 'Disk figures could not be interpreted', str(disk), 'Inspect disk data in the original scan.')
     for disk in records(checks.get('storage_health', {}).get('data')):
         status = str(disk.get('HealthStatus', '')).lower()
         if status and status != 'healthy':
-            add('warning', f'Storage health status: {disk.get("FriendlyName", "Drive")}', f'Windows reported {disk.get("HealthStatus")}', 'Back up important files and check vendor-specific storage diagnostics.')
+            add('high', f'Storage health status: {disk.get("FriendlyName", "Drive")}', f'Windows reported {disk.get("HealthStatus")}', 'Back up important files now, then check the drive with the manufacturer’s diagnostic tool.')
     for d in records(checks.get('drive_reliability',{}).get('data')):
         if not isinstance(d,dict) or d.get('Unavailable'):continue
         name=str(d.get('FriendlyName') or 'Physical drive')[:90]
@@ -56,21 +62,24 @@ def analyze(report):
             if isinstance(v,(int,float)) and v>=0:details.append(f'{k}: {v} {unit}')
         errors=sum(float(d.get(k) or 0) for k in ('ReadErrorsUncorrected','WriteErrorsUncorrected') if isinstance(d.get(k),(int,float)))
         temp=d.get('Temperature')
-        if errors>0 or (isinstance(temp,(int,float)) and temp>=65):
-            add('warning',f'Drive reliability requires review: {name}', '; '.join(details) or 'Drive reported reliability concerns', 'Back up important files; review drive health with the manufacturer’s diagnostic tool. Do not assume counters are universally supported.')
+        # Uncorrected errors mean data was lost or is at risk; 65 °C is normal for NVMe under load, so only warn at 75 °C.
+        if errors>0 or (isinstance(temp,(int,float)) and temp>=75):
+            add('high' if errors>0 else 'warning',f'Drive reliability requires review: {name}', '; '.join(details) or 'Drive reported reliability concerns', 'Back up important files; review drive health with the manufacturer’s diagnostic tool. Do not assume counters are universally supported.')
     event_summary = summarize_events(checks.get('event_log_analysis'))
     if event_summary['status']=='ok':
         groups=event_summary['groups']
         if groups:
             top=groups[:3]
             detail='; '.join(f"{g['description']} ({g['channel']} ID {g['event_id']}, {g['count_sampled']} sampled)" for g in top)
-            add('info','Windows events worth reviewing',detail,
+            ids={g['event_id'] for g in groups}
+            level='high' if ids&HIGH_EVENTS else 'warning' if ids&WARNING_EVENTS else 'info'
+            title={'high':'Hardware or disk errors in Windows logs','warning':'Windows warnings worth reviewing','info':'Windows events worth reviewing'}[level]
+            add(level,title,detail,
                 'Compare timestamps with actual symptoms. Open Event Viewer or Reliability Monitor to investigate; IDs alone do not establish root cause.')
     elif event_summary['status']=='unavailable':
         add('unknown','Windows event analysis unavailable',event_summary.get('reason','Could not read event channels'),
             'Review Windows Event Viewer permissions or retry the scan.')
-    if not findings:
-        add('info', 'No rule-based alerts from available snapshot', 'No configured thresholds triggered', 'A single snapshot cannot rule out intermittent hardware or software problems.')
+    # No findings means no alerts; the UI shows "Healthy" (a placeholder finding would read as an issue).
     return {'analyzer_version': '0.1.0', 'source_generated_at_utc': report.get('generated_at_utc'), 'analyzed_at_utc': datetime.now().astimezone().isoformat(), 'ai_generated': False, 'read_only': True, 'findings': findings, 'disclaimer': 'Rule-based analysis only. A successful collector does not establish device health. No repairs were performed.'}
 
 

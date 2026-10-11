@@ -28,7 +28,7 @@ $c=Get-CimInstance Win32_PerfFormattedData_PerfOS_Processor -Filter "Name='_Tota
 $m=Get-CimInstance Win32_OperatingSystem;
 $d=Get-CimInstance Win32_PerfFormattedData_PerfDisk_PhysicalDisk -Filter "Name='_Total'";
 [pscustomobject]@{cpu_percent=$c.PercentProcessorTime;total_mb=[math]::Round($m.TotalVisibleMemorySize/1024,2);available_mb=[math]::Round($m.FreePhysicalMemory/1024,2);disk_busy_percent=$d.PercentDiskTime;disk_queue_length=$d.CurrentDiskQueueLength}|ConvertTo-Json -Compress"""
-    p=subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-Command',script],capture_output=True,text=True,timeout=30,check=False)
+    p=subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-Command',script],capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=30,check=False,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
     if p.returncode:raise RuntimeError('Windows performance counters unavailable; try restarting PC Medic')
     try:return parse_metrics(json.loads(p.stdout.strip()))
     except (json.JSONDecodeError,ValueError) as e:raise RuntimeError('Invalid Windows performance data') from e

@@ -59,7 +59,7 @@ def identify(d):
 def inventory():
  if os.name!='nt': return {'available':False,'reason':'Hardware inventory requires Windows.'}
  try:
-  proc=subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-Command',PS],capture_output=True,text=True,timeout=18,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
+  proc=subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-Command',PS],capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=18,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
   if proc.returncode or not proc.stdout.strip(): return {'available':False,'reason':'Windows could not provide hardware inventory.'}
   d=json.loads(proc.stdout.lstrip('\ufeff').strip()); d['available']=True
   d['ProductName']=clean_product_name(d.get('ProductName'))

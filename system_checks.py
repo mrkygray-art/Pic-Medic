@@ -11,7 +11,7 @@ def run(script, timeout=30):
     if os.name != 'nt':return {'available':False,'reason':'This check requires Windows.'}
     try:
         p=subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-Command',HEADER+script],capture_output=True,text=True,
-                         encoding='utf-8',timeout=timeout,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
+                         encoding='utf-8',errors='replace',timeout=timeout,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
         data=json.loads(p.stdout.lstrip('﻿').strip() or 'null')
         if not isinstance(data,dict):return {'available':False,'reason':'Windows returned no data for this check.'}
         data['available']=True
