@@ -151,6 +151,8 @@ WINDOWS_TOOLS = {
  'event-viewer': ('Event Viewer', 'eventvwr.msc'),
  'services': ('Services', 'services.msc'),
  'startup': ('Startup Apps', 'ms-settings:startupapps'),
+ 'installed-apps': ('Installed Apps', 'ms-settings:appsfeatures'),
+ 'programs-features': ('Programs and Features', 'appwiz.cpl'),
  'system-config': ('System Configuration', 'msconfig.exe'),
  'device-manager': ('Device Manager', 'devmgmt.msc'),
  'task-manager': ('Task Manager', 'taskmgr.exe'),

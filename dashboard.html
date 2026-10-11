@@ -1081,6 +1081,8 @@ const windowsTools=[
  ['reliability','Reliability Monitor','View crash and stability history.'],
  ['services','Windows Services','Inspect running and stopped services; do not change them automatically.'],
  ['startup','Startup Apps','Review apps configured to launch when you sign in.'],
+ ['installed-apps','Installed Apps (Add or Remove Programs)','Review installed apps, their size and install date; uninstalling asks Windows for confirmation.'],
+ ['programs-features','Programs and Features','Classic Control Panel uninstaller, also for Windows features and installed updates; nothing is removed automatically.'],
  ['system-config','System Configuration','Advanced startup troubleshooting; change settings only if you understand them.'],
  ['device-manager','Device Manager','Inspect device status and driver details.'],
  ['task-manager','Task Manager','Review CPU, memory, disk, and processes.'],
@@ -1125,6 +1127,8 @@ function offerAITools(answer){
   ['reliability',/\b(?:reliability monitor|reliability history)\b/i],
   ['services',/\b(?:windows services|services console|services\.msc)\b/i],
   ['startup',/\b(?:startup apps|startup settings)\b/i],
+  ['installed-apps',/\b(?:installed apps|apps (?:&|and) features|add or remove programs|add\/remove programs|uninstall (?:an? |the )?(?:apps?|programs?))\b/i],
+  ['programs-features',/\b(?:programs and features|appwiz\.cpl)\b/i],
   ['device-manager',/\b(?:device manager|devmgmt\.msc)\b/i],
   ['task-manager',/\b(?:task manager|taskmgr)\b/i],
   ['windows-update',/\b(?:windows update|update history)\b/i],
@@ -1273,6 +1277,7 @@ const HOME_TOOLS=[
  ['Speed it up and free space',[
   ['Find big files','Shows your largest files. Anything you remove goes to the Recycle Bin.',true,()=>switchTab('explorer')],
   ['Choose startup apps','Decide which apps start when you sign in.','Settings','startup'],
+  ['Uninstall apps','See every installed app and remove ones you don’t use. Windows asks before removing anything.','Settings','installed-apps'],
   ['See what’s running','Shows which apps are using the processor and memory.','Task Manager','task-manager'],
   ['Windows cleanup suggestions','Temporary files, the Recycle Bin and other space Windows can free.','Settings','storage-settings']]],
  ['Stay safe and up to date',[

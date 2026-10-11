@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Add or remove programs** in Tools: **Installed Apps** (Windows 11 Settings, `ms-settings:appsfeatures`) and the classic **Programs and Features** (`appwiz.cpl`) in Technician mode, and an **Uninstall apps** card under "Speed it up and free space" in Home mode. Like every Windows tool, they're allowlisted and ask before opening. PC Medic never uninstalls anything itself. Answers that mention Add or Remove Programs, Apps & features or uninstalling an app link to the tool.
 - **Google sign-in** (`google_auth.py`, Settings > Google account): PC Medic's free AI questions now need a Google sign-in. Your own Anthropic or OpenAI key never does.
   - Sign-in uses Google's flow for desktop apps: the page opens in your default browser and returns to a one-time listener on 127.0.0.1 (PKCE, random state, 5-minute limit).
   - Only `openid email` is requested. PC Medic keeps the account ID and email in Windows Credential Manager and throws away Google's tokens. Nothing about the PC is sent.

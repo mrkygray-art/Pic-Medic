@@ -1,6 +1,7 @@
 """Regression tests for the five serious fixes: Recycle Bin safety, UTF-8 output, verdict severities,
 the PowerShell path, and warning-level disk events."""
 import os
+import re
 import subprocess
 import tempfile
 import unittest
@@ -107,6 +108,14 @@ class TestWindowsBehaviour(unittest.TestCase):
             if not target.startswith(('ms-settings:', 'windowsdefender:')):
                 with self.subTest(tool=key):
                     self.assertTrue((system32 / target).exists(), target)
+
+    def test_every_windows_tool_on_the_page_is_allowlisted(self):
+        page = (Path(dashboard.BASE) / 'dashboard.html').read_text(encoding='utf-8')
+        used = set(re.findall(r"\[\s*'([a-z-]+)',\s*'[^']+',\s*'[^']*'\]", page.split('const windowsTools=[')[1].split('];')[0]))
+        used |= set(re.findall(r"'(?:Settings|Task Manager|Windows Security|Memory Diagnostic)','([a-z-]+)'\]", page))
+        self.assertIn('installed-apps', used)
+        self.assertIn('programs-features', used)
+        self.assertEqual(used - set(dashboard.WINDOWS_TOOLS) - {'storage-explorer', 'disk-health'}, set())
 
     def test_junctions_are_detected(self):
         base = Path(tempfile.mkdtemp())
