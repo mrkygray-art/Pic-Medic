@@ -1,5 +1,10 @@
 # PC Medic AI changelog
 
+## Unreleased
+
+- A window served by an older PC Medic now shows a **Restart PC Medic** banner that stays at the top. It names both versions and says to close any copy running in a terminal. The technician report button is disabled until then, because an older program ignores newer report fields, as it did with the service details.
+- Links in dark mode use the accent color, so the update banner's download link is readable.
+
 ## 1.21.0 (2026-10-11)
 
 - **Technician report, redesigned** (`report.py`):

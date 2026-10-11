@@ -163,6 +163,8 @@ body.tech .tile .txt{font-family:var(--mono);font-size:11.5px;line-height:1.5;ov
 @media(max-width:700px){.check-row{grid-template-columns:1fr}.check-row .tech{grid-column:1}}
 .report-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 4px}.report-fields label{display:grid;gap:4px;font-size:13px;font-weight:600}.report-fields input{padding:7px 10px;font:inherit;font-weight:400}
 @media(max-width:560px){.report-fields{grid-template-columns:1fr}}
+main a{color:var(--accent)}main a:hover{color:var(--accent-hover)}
+.version-banner{display:flex;flex-direction:column;gap:4px;margin:0 0 14px;padding:12px 16px;border-radius:8px;border:1px solid var(--bad);border-left:4px solid var(--bad);background:var(--bad-bg);color:var(--text)}.version-banner strong{color:var(--bad)}
 /* Fixes */
 .fixes-list{display:flex;flex-direction:column;margin-top:14px;border:1px solid var(--border);border-radius:8px;overflow:hidden}
 .fix-row{display:flex;align-items:center;gap:14px;padding:12px 14px;background:var(--surface)}.fix-row+.fix-row{border-top:1px solid var(--border)}
@@ -781,8 +783,11 @@ async function checkServerVersion(){
  let v='an older version';
  try{const r=await fetch('/api/ping',{cache:'no-store'});if(r.ok)v=(await r.json()).version||v;}catch(e){return;}
  if(v===PAGE_VERSION)return;
- serverVersionNote=`This window shows PC Medic ${PAGE_VERSION}, but the PC Medic running behind it is ${v}. Close PC Medic (and any copy running in a terminal) and open it again.`;
+ serverVersionNote=`This window shows PC Medic ${PAGE_VERSION}, but the PC Medic program running behind it is ${v}, so newer features won't work. Close PC Medic (and any copy running in a terminal or PowerShell window), then open PC Medic from the Start menu.`;
  setStatus('Restart PC Medic',true);$('assistant-status').textContent=serverVersionNote;
+ // A banner that stays until PC Medic is restarted; status lines get overwritten by the next answer.
+ const banner=html('div','version-banner');banner.setAttribute('role','alert');banner.append(html('strong','','Restart PC Medic'),html('span','',serverVersionNote));
+ document.querySelector('main').prepend(banner);$('tech-report').disabled=true;
 }
 setTimeout(checkServerVersion,1500);
 // Problems ("my computer keeps freezing") start a coordinated investigation (coordinator.py): the checks that fit,
@@ -1489,6 +1494,7 @@ const WHY={
  'watch-export':()=>watchActive?'Available when the watch finishes.':'Run a Performance Watch first. This saves its samples as a file.',
  'advanced-verifier':()=>'Tick "I\'m a technician and understand the risks" above first.','advanced-wpr':()=>'Tick "I\'m a technician and understand the risks" above first.',
  'settings-check-update':()=>'Update checks are turned off in this copy of PC Medic.',
+ 'tech-report':()=>serverVersionNote?'Restart PC Medic first: the program behind this window is older than this page.':'',
  'deep-run':()=>serverVersionNote?'Restart PC Medic first: the copy running behind this window is older than this page.':'A deep scan is already running. Its results appear below when it finishes.',
  'security-run':[()=>'Checking now…',true],'wu-run':[()=>'Checking now…',true],'bsod-run':[()=>'Checking now…',true],
  'stop-check':[()=>'Stop works while a Health Check is running.',true],'watch-stop':[()=>'Stop & Analyze works while a watch is running.',true],'today-refresh':[()=>'Checking now…',true]};
