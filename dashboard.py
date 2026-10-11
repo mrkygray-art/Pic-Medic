@@ -33,6 +33,7 @@ import google_auth
 import troubleshooter
 import report as tech_report
 import today
+import timeline
 
 BASE = Path(__file__).resolve().parent
 FROZEN = getattr(sys, 'frozen', False)
@@ -44,6 +45,7 @@ HISTORY = DATA / 'scan_history.json'
 assistant.SCAN_PATH = str(SCAN)  # Claude's get_latest_health_check tool reads the same scan
 settings.DATA_FILE = str(DATA / 'settings.json')  # trial count and update preference
 troubleshooter.CASES_FILE = str(DATA / 'cases.json')  # saved troubleshooting cases
+timeline.DATA_FILE = str(DATA / 'timeline.json')  # daily snapshots for "What changed?" (local only)
 HISTORY_LOCK = threading.Lock()
 LOCK = threading.Lock()
 TOKEN = secrets.token_urlsafe(32)
@@ -432,6 +434,7 @@ class Handler(BaseHTTPRequestHandler):
   if path=='/api/today':
    refresh=(parse_qs(urlparse(self.path).query).get('refresh') or [''])[0]=='1'
    return self.send_json(today.get(self.server.demo,refresh))
+  if path=='/api/timeline':return self.send_json(timeline.days())
   if path=='/api/history':return self.send_json({'history':history_read()})
   if path=='/api/disk-forecast':return self.send_json({'forecast':disk_forecast(history_read())})
   if path=='/api/advanced-capabilities':return self.send_json({'edition':windows_edition(),'policy_available':has_policy_editor(),'windows':os.name=='nt'})

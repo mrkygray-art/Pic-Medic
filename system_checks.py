@@ -4,6 +4,7 @@ Each check returns {'available': bool, ...data}. describe() turns data into plai
 offline assistant; for_cloud() strips anything identifying before Claude sees it.
 """
 import json, os, re, subprocess
+from datetime import datetime
 
 HEADER = "[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false)\n$ErrorActionPreference='SilentlyContinue'\n"
 
@@ -29,8 +30,14 @@ $f=Join-Path $env:TEMP ('pcmedic-battery-'+[guid]::NewGuid().ToString()+'.xml')
 powercfg /batteryreport /xml /output $f | Out-Null
 $design=$null;$full=$null;$cycles=$null;$chem=$null
 if(Test-Path $f){[xml]$x=Get-Content $f -Raw;Remove-Item $f -Force
- $bat=@($x.BatteryReport.Batteries.Battery)[0];$design=[int64]$bat.DesignCapacity;$full=[int64]$bat.FullChargeCapacity;$cycles=[int]$bat.CycleCount;$chem=[string]$bat.Chemistry}
-[pscustomobject]@{Present=$true;Model=$b[0].Name;ChargePercent=$b[0].EstimatedChargeRemaining;OnAC=($b[0].BatteryStatus -eq 2);DesignCapacity_mWh=$design;FullChargeCapacity_mWh=$full;CycleCount=$cycles;Chemistry=$chem}|ConvertTo-Json -Compress
+ $bat=@($x.BatteryReport.Batteries.Battery)[0];$design=[int64]$bat.DesignCapacity;$full=[int64]$bat.FullChargeCapacity;$cycles=[int]$bat.CycleCount;$chem=[string]$bat.Chemistry
+ $rt=$x.BatteryReport.RuntimeEstimates;$runFull=[string]$rt.FullChargeCapacity.ActiveRuntime;$runDesign=[string]$rt.DesignCapacity.ActiveRuntime
+ # Capacity history since the last battery swap, thinned to about 12 points (date + full-charge capacity only)
+ $h=@($x.BatteryReport.History.HistoryEntry | Where-Object {[int64]$_.FullChargeCapacity -gt 0})
+ for($i=$h.Count-1;$i -gt 0;$i--){if($h[$i].BatteryChanged -eq '1'){$h=$h[$i..($h.Count-1)];break}}
+ if($h.Count){$step=[math]::Max(1,[math]::Ceiling($h.Count/12));$idx=@(for($i=0;$i -lt $h.Count;$i+=$step){$i});if($idx[-1] -ne $h.Count-1){$idx+=$h.Count-1}
+  $hist=@($idx|ForEach-Object{[pscustomobject]@{Date=([string]$h[$_].LocalStartDate).Substring(0,10);Full_mWh=[int64]$h[$_].FullChargeCapacity}})}}
+[pscustomobject]@{Present=$true;Model=$b[0].Name;ChargePercent=$b[0].EstimatedChargeRemaining;OnAC=($b[0].BatteryStatus -eq 2);DesignCapacity_mWh=$design;FullChargeCapacity_mWh=$full;CycleCount=$cycles;Chemistry=$chem;RuntimeFull=$runFull;RuntimeDesign=$runDesign;History=$hist}|ConvertTo-Json -Compress -Depth 4
 '''
 
 DISK = r'''
@@ -96,7 +103,49 @@ def check(name):
     if name=='battery' and data.get('available') and data.get('Present'):
         design,full=data.get('DesignCapacity_mWh'),data.get('FullChargeCapacity_mWh')
         data['HealthPercent']=round(100*full/design) if isinstance(design,int) and isinstance(full,int) and design>0 else None
+        battery_extras(data)
     return data
+
+def iso_minutes(text):
+    """'PT1H29M23S' (Windows battery report) -> 89 minutes; None for missing or zero."""
+    m=re.fullmatch(r'P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:([\d.]+)S)?',str(text or ''))
+    if not m:return None
+    d,h,mi,sec=(float(x or 0) for x in m.groups())
+    total=round(d*1440+h*60+mi+sec/60)
+    return total or None
+
+def hours_text(minutes):
+    h,m=divmod(int(minutes),60)
+    return f'{h} h {m:02d} min' if h else f'{m} min'
+
+def battery_extras(data):
+    """Runtime at full charge, and the capacity trend from Windows' battery history."""
+    data['RuntimeFullMinutes']=iso_minutes(data.pop('RuntimeFull',None))
+    data['RuntimeDesignMinutes']=iso_minutes(data.pop('RuntimeDesign',None))
+    design=data.get('DesignCapacity_mWh')
+    points=[p for p in as_list(data.pop('History',None)) if isinstance(p,dict) and isinstance(p.get('Full_mWh'),int) and p['Full_mWh']>0]
+    data['History']=[{'date':p['Date'],'percent':min(100,round(100*p['Full_mWh']/design))} for p in points] if isinstance(design,int) and design>0 else []
+    data['Trend']=None
+    if len(data['History'])>=2:
+        first,last=data['History'][0],data['History'][-1]
+        try:days=(datetime.fromisoformat(last['date'])-datetime.fromisoformat(first['date'])).days
+        except ValueError:days=0
+        if days>=90:
+            months=round(days/30.44)
+            trend={'since':first['date'],'from':first['percent'],'to':last['percent'],'months':months,'months_to_80':None}
+            lost_per_month=(first['percent']-last['percent'])/(days/30.44)
+            if lost_per_month>0.05 and last['percent']>80:trend['months_to_80']=round((last['percent']-80)/lost_per_month)
+            data['Trend']=trend
+
+def month_year(iso):
+    try:return datetime.fromisoformat(iso).strftime('%B %Y')
+    except ValueError:return iso
+
+def span_text(months):
+    """32 -> '2 years and 8 months'."""
+    y,m=divmod(int(months),12)
+    parts=[f'{y} year{"s" if y!=1 else ""}' if y else '',f'{m} month{"s" if m!=1 else ""}' if m or not y else '']
+    return ' and '.join(x for x in parts if x)
 
 def describe(name, d):
     """Plain-English summary of a check for the offline assistant."""
@@ -110,6 +159,16 @@ def describe(name, d):
             lines.append(f'It now holds {d["FullChargeCapacity_mWh"]:,} mWh of its original {d["DesignCapacity_mWh"]:,} mWh design capacity, about {health}% of new.')
             lines.append('That is healthy.' if health>=80 else 'That is noticeable wear: expect shorter battery life.' if health>=60 else 'That is heavy wear. A replacement battery would restore battery life.')
         if d.get('CycleCount'):lines.append(f'Charge cycles reported: {d["CycleCount"]}.')
+        if d.get('RuntimeFullMinutes'):
+            new=f' (about {hours_text(d["RuntimeDesignMinutes"])} when it was new)' if d.get('RuntimeDesignMinutes') and d['RuntimeDesignMinutes']-d['RuntimeFullMinutes']>=5 else ''
+            lines.append(f'On a full charge it lasts about {hours_text(d["RuntimeFullMinutes"])} of active use{new}, going by how this computer has been used lately.')
+        t=d.get('Trend')
+        if t:
+            lines.append(f'Since {month_year(t["since"])} it went from {t["from"]}% to {t["to"]}% of new over {span_text(t["months"])}.'
+                         if t['from']!=t['to'] else f'It has held steady since {month_year(t["since"])}.')
+            if t.get('months_to_80'):
+                lines.append('At that pace it stays above 80%, where most people start to notice shorter battery life, for more than 5 years.' if t['months_to_80']>60 else
+                             f'At that pace it reaches 80%, where most people start to notice shorter battery life, in about {span_text(t["months_to_80"])}.')
     elif name=='disk_health':
         for disk in as_list(d.get('Disks')):
             bits=[f'{disk.get("Name")} ({disk.get("MediaType") or "disk"}, {disk.get("SizeGB")} GB): health status {disk.get("Health") or "unknown"}']
@@ -166,7 +225,9 @@ def describe_technical(name, d):
         if not d.get('Present'):return 'Battery: none (desktop or AC-only)'
         mwh=lambda v:f'{v:,}' if isinstance(v,(int,float)) else '?'
         return (f'Battery {d.get("Model") or "?"} · {mwh(d.get("FullChargeCapacity_mWh"))} / {mwh(d.get("DesignCapacity_mWh"))} mWh'
-                f' ({d.get("HealthPercent")}%) · {d.get("CycleCount") or "?"} cycles · {"AC" if d.get("OnAC") else "battery"} {d.get("ChargePercent")}%')
+                f' ({d.get("HealthPercent")}%) · {d.get("CycleCount") or "?"} cycles · {"AC" if d.get("OnAC") else "battery"} {d.get("ChargePercent")}%'
+                + (f' · runtime {hours_text(d["RuntimeFullMinutes"])} full / {hours_text(d["RuntimeDesignMinutes"]) if d.get("RuntimeDesignMinutes") else "?"} design' if d.get('RuntimeFullMinutes') else '')
+                + (f' · {d["Trend"]["from"]}%→{d["Trend"]["to"]}% since {d["Trend"]["since"]}' if d.get('Trend') else ''))
     if name=='disk_health':
         parts=[]
         for x in as_list(d.get('Disks')):

@@ -32,6 +32,8 @@ A local Windows diagnostic assistant for **laptops and desktops** running Window
 - Two modes (`uiMode`: `home` | `tech`, `body.tech`, localStorage `pcmedic-ui-mode`). Hide elements per mode with `data-show="home|tech"`. Anything new that explains evidence needs plain text for Home and raw values for Technician (`describe()` / `describe_technical()`, finding `text` / `tech`, tile `plain` / `tech`).
 - Styling uses the Fluent tokens in `<style id="fluent">` (`--accent`, `--surface`, `--good` …), redefined under `body.dark`. Use the tokens; don't add hard-coded colors.
 - The Today screen (`today.py`) only runs fast read-only checks (a few seconds total). Anything slower belongs in the Health Check.
+- The "What changed?" timeline (`timeline.py`) saves one snapshot a day from the Today checks into `timeline.json` (local only, 90 days, never sent to AI: it holds startup app names). New comparisons go in `compare()` with `plain` and `tech` text. Demo mode must not record.
+- Disabled buttons explain themselves through the `WHY` map at the end of dashboard.html (`explainDisabled()`). A new button that can be disabled needs an entry; mark it quiet when being disabled is its normal resting state.
 
 ## Style
 Dense, compact code with one-space indent in dashboard.py and hardware_advisor.py, four spaces elsewhere. Match the file you're in.

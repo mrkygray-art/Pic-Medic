@@ -13,13 +13,15 @@ Runs on Windows 10 and 11 laptops and desktops. Windows Server is out of scope.
 
 - **Two modes.** *Home* uses plain English, fewer screens and step-by-step help. *Technician* shows raw values, error codes, event IDs and every tool. PC Medic asks on first launch; switch any time at the top of the window.
 - **Today screen.** When PC Medic opens, it runs a quick read-only check and gives a one-line verdict plus five tiles: speed, storage, battery (or power on desktops), updates and stability. Click a tile to ask about it.
+- **What changed?** PC Medic keeps one small snapshot a day and shows what changed over the last week under the Today tiles: free space, battery health, crashes (and whether they followed an update), Windows updates, a pending restart and new startup apps. *Day by day* shows the whole timeline. Snapshots stay on the PC for 90 days.
+- **Battery report (laptops).** How much charge the battery still holds, how long a full charge lasts, and how that has changed since Windows started tracking, with an estimate of when it will feel worn. A worn battery links to the replacement-part search.
 - **Answers questions from real data.** It identifies your model, RAM, graphics, storage, battery, network, updates and crashes, so "Can I add more RAM?" is answered with your actual memory slots, not a generic article.
 - **Guided troubleshooting.** For "My computer is slow", PC Medic asks when it happens and measures the processor, memory, disk, busiest apps and startup apps. It then explains the evidence, suggests one fix with step-by-step help, measures again, and asks whether it feels better. Each case is saved under **Fixes**.
 - **Health Check and Performance Watch.** Rule-based scans of storage, drivers, Windows events and performance over time.
 - **AI when needed.** In Smart mode (the default), questions the built-in engine can't answer go to Claude, which runs read-only checks and searches the web with cited sources, or to ChatGPT. You approve before anything is shared. Every answer is labeled with who answered it ("Answered by PC Medic · on this PC", "Answered by Claude", ...).
 - **Parts research.** Chargers, batteries, RAM and SSDs, researched against your exact model and labeled "possible match" or "unverified", never "guaranteed".
 - **Technician report.** A printable summary of the computer, findings, checks, troubleshooting history and the conversation, with space for notes.
-- **Tools.** Storage Explorer finds large files and safely moves them to the Recycle Bin. You can also open Windows tools after confirming, and view Devices & Drivers.
+- **Tools.** Storage Explorer finds large files and safely moves them to the Recycle Bin. You can also open Windows tools after confirming, including Installed Apps (Add or Remove Programs), and view Devices & Drivers. A greyed-out button always says what turns it on.
 
 ## Install
 
@@ -53,6 +55,7 @@ A key set as `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` on the PC also works. Instal
 - The server listens only on this computer, refuses requests from other websites, and answers only the Windows account that started it.
 - Every check is read-only. PC Medic opens Windows pages and tools after you confirm; you make every change.
 - Nothing leaves the PC in Offline mode. Before Claude or ChatGPT is used, PC Medic asks once per session and lists what is shared. It never sends serial numbers, user or computer names, IP or MAC addresses, file names, or program and process names.
+- The "What changed?" timeline (`timeline.json`) stays on the PC and is never sent to AI.
 - Storage Explorer only moves files to the Recycle Bin. It refuses files that are too large for the Recycle Bin, because Windows would delete those permanently.
 
 ## Build the installer

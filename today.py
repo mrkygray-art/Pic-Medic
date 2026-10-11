@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 import system_checks
+import timeline
 from performance_diagnostics import collect_performance
 
 CACHE_SECONDS = 300
@@ -60,13 +61,14 @@ def battery_tile(d):
     tech = system_checks.describe_technical('battery', d)
     health = d.get('HealthPercent')
     cycles = f' after {d["CycleCount"]} charge cycles' if d.get('CycleCount') else ''
+    runtime = f' About {system_checks.hours_text(d["RuntimeFullMinutes"])} of use on a full charge.' if d.get('RuntimeFullMinutes') else ''
     if health is None:
         return _tile('Battery', 'note', f'Battery at {d.get("ChargePercent")}%. Windows didn’t report its wear.', tech, 'How is my battery?')
     if health < 60:
-        return _tile('Battery', 'attention', f'Worn: holds {health}% of its original charge{cycles}. A new battery would last much longer.', tech, 'I need a replacement battery')
+        return _tile('Battery', 'attention', f'Worn: holds {health}% of its original charge{cycles}.{runtime} A new battery would last much longer.', tech, 'I need a replacement battery')
     if health < 80:
-        return _tile('Battery', 'note', f'Some wear: holds {health}% of its original charge{cycles}.', tech, 'How is my battery?')
-    return _tile('Battery', 'good', f'Holds {health}% of its original charge{cycles}.', tech, 'How is my battery?')
+        return _tile('Battery', 'note', f'Some wear: holds {health}% of its original charge{cycles}.{runtime}', tech, 'How is my battery?')
+    return _tile('Battery', 'good', f'Holds {health}% of its original charge{cycles}.{runtime}', tech, 'How is my battery?')
 
 
 def updates_tile(updates, reboot):
@@ -127,13 +129,19 @@ def verdict(tiles):
 
 def build(demo=False):
     with ThreadPoolExecutor(max_workers=6) as pool:
-        jobs = {name: pool.submit(system_checks.check, name) for name in ('battery', 'disk_health', 'crashes', 'updates', 'pending_reboot')}
+        jobs = {name: pool.submit(system_checks.check, name) for name in ('battery', 'disk_health', 'crashes', 'updates', 'pending_reboot', 'startup_apps')}
         perf = quick_performance(demo)
         r = {name: job.result() for name, job in jobs.items()}
     tiles = [speed_tile(perf), storage_tile(r['disk_health']), battery_tile(r['battery']),
              updates_tile(r['updates'], r['pending_reboot']), stability_tile(r['crashes'])]
     title, subtitle = verdict(tiles)
-    return {'title': title, 'subtitle': subtitle, 'tiles': tiles, 'checked_at': datetime.now(timezone.utc).isoformat(timespec='seconds')}
+    if not demo:  # demo mode would fill the real timeline with made-up numbers
+        try:
+            timeline.record(timeline.snapshot(r))
+        except (OSError, ValueError) as exc:
+            print('Timeline not saved:', exc, flush=True)
+    return {'title': title, 'subtitle': subtitle, 'tiles': tiles, 'changes': timeline.summary(),
+            'checked_at': datetime.now(timezone.utc).isoformat(timespec='seconds')}
 
 
 def get(demo=False, refresh=False):

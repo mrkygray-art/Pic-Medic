@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **What changed?** (`timeline.py`, `GET /api/timeline`): the Today check saves one small snapshot a day (replacing earlier ones from the same day) and keeps them 90 days in `timeline.json`, local only and never sent to AI. Under the Today tiles, PC Medic compares today with about a week ago:
+  - free space per drive (changes of 2 GB or 2% and up), battery health, new crashes or unexpected shutdowns ("the first in 21 days", "it came after Windows installed updates on Oct 8"), Windows updates, a restart still pending, and apps added to or removed from startup;
+  - Home shows plain sentences, Technician the raw values; **Day by day** lists every day's changes;
+  - demo mode never writes the timeline. The Today check now also reads startup apps (about half a second).
+- **Battery report**: the battery check now reads Windows' runtime estimates and capacity history (`powercfg /batteryreport`):
+  - how long a full charge lasts, now and when new ("about 1 h 29 min of active use (about 1 h 34 min when it was new)");
+  - the trend since Windows started tracking, or since the battery was last replaced ("from 100% to 95% of new over 2 years and 8 months"), and when it will reach 80% at that pace;
+  - the Today battery tile shows the runtime, and Home Tools has a **Battery report** card. Claude sees the runtime and trend, but not the battery's ID.
+- **Greyed-out buttons say why**: a disabled button gets a tooltip and a note under its row saying what turns it on ("Run a Performance Watch first…", "A Health Check is running…"). Buttons that are normally off while idle, like Stop, only get the tooltip.
 - **Add or remove programs** in Tools: **Installed Apps** (Windows 11 Settings, `ms-settings:appsfeatures`) and the classic **Programs and Features** (`appwiz.cpl`) in Technician mode, and an **Uninstall apps** card under "Speed it up and free space" in Home mode. Like every Windows tool, they're allowlisted and ask before opening. PC Medic never uninstalls anything itself. Answers that mention Add or Remove Programs, Apps & features or uninstalling an app link to the tool.
 - **Google sign-in** (`google_auth.py`, Settings > Google account): PC Medic's free AI questions now need a Google sign-in. Your own Anthropic or OpenAI key never does.
   - Sign-in uses Google's flow for desktop apps: the page opens in your default browser and returns to a one-time listener on 127.0.0.1 (PKCE, random state, 5-minute limit).
